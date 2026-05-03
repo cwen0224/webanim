@@ -7,7 +7,12 @@
       "Bash(mkdir -p \"/mnt/c/Users/cwen0/Desktop/ANIMATION/docs\")",
       "Read(//mnt/c/Users/cwen0/Desktop/**)",
       "PowerShell(New-Item *)",
-      "PowerShell(npm *)"
+      "PowerShell(npm *)",
+      "PowerShell(git config *)",
+      "PowerShell(gh auth *)",
+      "PowerShell(gh api *)",
+      "PowerShell(gh workflow *)",
+      "PowerShell(gh run *)"
     ]
   }
 }

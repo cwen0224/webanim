@@ -16,16 +16,9 @@
   flex-shrink: 0;
 }
 
-.logo {
-  font-weight: 700;
-  font-size: 15px;
-  color: #4a9eff;
-}
-
-.version {
-  font-size: 12px;
-  color: #666;
-}
+.logo { font-weight: 700; font-size: 15px; color: #4a9eff; }
+.version { font-size: 12px; color: #666; }
+.selected-label { font-size: 12px; color: #aaa; margin-left: auto; }
 
 .workspace {
   display: flex;
@@ -33,20 +26,69 @@
   overflow: hidden;
 }
 
-.panel-left,
-.panel-right {
-  width: 220px;
-  background: #222;
-  border-right: 1px solid #333;
+.panel-left, .panel-right {
+  width: 200px;
+  background: #1e1e1e;
   flex-shrink: 0;
-  padding: 12px;
-  font-size: 13px;
-  color: #888;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  overflow-y: auto;
 }
 
-.panel-right {
-  border-right: none;
-  border-left: 1px solid #333;
+.panel-left  { border-right: 1px solid #333; }
+.panel-right { border-left:  1px solid #333; }
+
+.panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.btn {
+  background: #2d2d2d;
+  color: #ccc;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+.btn:hover { background: #3a3a3a; color: #fff; }
+.btn-danger { color: #ff6b6b; border-color: #5a2a2a; }
+.btn-danger:hover { background: #3a1a1a; }
+
+.obj-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.obj-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #aaa;
+}
+.obj-item:hover { background: #2a2a2a; }
+.obj-item.active { background: #1a2a3a; color: #fff; }
+
+.obj-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.hint {
+  font-size: 12px;
+  color: #555;
+  line-height: 1.8;
 }
 
 .canvas-area {
@@ -54,18 +96,18 @@
   overflow: hidden;
   position: relative;
 }
-
 .canvas-area canvas {
+  display: block;
   width: 100% !important;
   height: 100% !important;
 }
 
 .timeline {
-  height: 120px;
+  height: 80px;
   background: #1a1a1a;
   border-top: 1px solid #333;
   flex-shrink: 0;
-  padding: 12px;
-  font-size: 13px;
-  color: #888;
+  padding: 10px 16px;
+  font-size: 12px;
+  color: #555;
 }
