@@ -16,6 +16,7 @@ export default function App() {
   const showJoints       = useSceneStore(s => s.showJoints)
   const addObject        = useSceneStore(s => s.addObject)
   const deleteSelected   = useSceneStore(s => s.deleteSelected)
+  const setTexture       = useSceneStore(s => s.setTexture)
   const removePin        = useSceneStore(s => s.removePin)
   const unbindPin        = useSceneStore(s => s.unbindPin)
   const setMode          = useSceneStore(s => s.setMode)
@@ -123,6 +124,27 @@ export default function App() {
           {selected ? (
             <>
               <div className="panel-title">{selected.name}</div>
+
+              {/* 圖片 */}
+              <div className="section-label">圖片</div>
+              {selected.textureUrl ? (
+                <div className="prop-row">
+                  <span className="pin-name" title={selected.textureName ?? ''}>
+                    {selected.textureName ?? '已載入'}
+                  </span>
+                  <button className="btn-inline danger" onClick={() => setTexture(selected.id, null, null)}>移除</button>
+                </div>
+              ) : (
+                <label className="btn" style={{ cursor: 'pointer' }}>
+                  選擇圖片…
+                  <input type="file" accept="image/*" hidden
+                    onChange={e => {
+                      const file = e.target.files?.[0]
+                      if (file) setTexture(selected.id, URL.createObjectURL(file), file.name)
+                      e.target.value = ''
+                    }} />
+                </label>
+              )}
 
               {/* 重心 */}
               <div className="section-label">重心</div>

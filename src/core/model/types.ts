@@ -29,4 +29,6 @@ export interface SceneObject {
   zIndex: number
   pivot: Pivot
   pins: Pin[]
+  textureUrl:  string | null
+  textureName: string | null
 }

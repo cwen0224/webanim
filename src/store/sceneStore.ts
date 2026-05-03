@@ -20,6 +20,7 @@ interface SceneStore {
   updateQuad:         (id: string, quad: Quad) => void
   setBaseQuad:        (id: string, quad: Quad) => void  // 拖曳中：繞過參數插值
   autoRecordKeyframe: (id: string) => void              // 拖完：自動更新關鍵幀
+  setTexture:         (id: string, url: string | null, name?: string | null) => void
   select:             (id: string | null) => void
   deleteSelected:     () => void
 
@@ -88,12 +89,14 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
     const y   = 80 + Math.floor(idx / 4) * 50
     const obj: SceneObject = {
       id, name: `物件 ${idx + 1}`,
-      quad:     makeRectQuad(x, y, 160, 120),
-      opacity:  1,
-      tint:     COLORS[idx % COLORS.length],
-      parentId: null, children: [], zIndex: idx,
-      pivot:    { uv: { u: 0.5, v: 0.5 }, name: '重心' },
-      pins:     [],
+      quad:        makeRectQuad(x, y, 160, 120),
+      opacity:     1,
+      tint:        COLORS[idx % COLORS.length],
+      parentId:    null, children: [], zIndex: idx,
+      pivot:       { uv: { u: 0.5, v: 0.5 }, name: '重心' },
+      pins:        [],
+      textureUrl:  null,
+      textureName: null,
       ...overrides,
     }
     set(s => ({ objects: { ...s.objects, [id]: obj }, selectedId: id }))
@@ -137,6 +140,10 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
       return { parameters: newParams }
     })
   },
+
+  setTexture: (id, url, name = null) => set(s => ({
+    objects: { ...s.objects, [id]: { ...s.objects[id], textureUrl: url, textureName: name ?? null } },
+  })),
 
   select:  (id) => set({ selectedId: id }),
 
