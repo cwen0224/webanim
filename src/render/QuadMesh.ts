@@ -23,6 +23,7 @@ export class QuadMesh {
   private _mesh:   Mesh | null = null
   private _texture: Texture | null = null
   private _loadingUrl: string | null = null
+  private _meshPivotUV = { u: -1, v: -1 }   // 上次建立 mesh 時的重心 UV
   private _lastSelected  = false
   private _lastShowJoints = true
   private _obj: SceneObject
@@ -90,24 +91,48 @@ export class QuadMesh {
   private _updateMesh() {
     if (!this._texture) return
     const q   = this._obj.quad
-    const pos = (this._mesh?.geometry as MeshGeometry | undefined)?.positions
+    const puv = this._obj.pivot.uv
+    const c   = uvToWorld(puv, q)   // 重心世界座標
 
-    if (this._mesh && pos) {
-      // 原地更新頂點位置，不重建 GPU 物件
+    // 重心 UV 沒變 → 只原地更新頂點位置，不重建 GPU 物件
+    if (this._mesh && puv.u === this._meshPivotUV.u && puv.v === this._meshPivotUV.v) {
+      const pos = (this._mesh.geometry as MeshGeometry).positions
       pos[0] = q[0].x; pos[1] = q[0].y
       pos[2] = q[1].x; pos[3] = q[1].y
       pos[4] = q[2].x; pos[5] = q[2].y
       pos[6] = q[3].x; pos[7] = q[3].y
+      pos[8] = c.x;    pos[9] = c.y
       this._mesh.geometry.getAttribute('aPosition').buffer.update()
       this._mesh.alpha = this._obj.opacity
       return
     }
 
+    // 重建：重心 UV 改變，或首次建立
     this._destroyMesh()
+    this._meshPivotUV = { u: puv.u, v: puv.v }
+
+    // 5 頂點（TL TR BR BL 重心）× 4 三角形，以重心為中心的扇形切割
     const geometry = new MeshGeometry({
-      positions: new Float32Array([q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y]),
-      uvs:       new Float32Array([0, 0,   1, 0,   1, 1,   0, 1]),
-      indices:   new Uint32Array([0, 1, 2,  0, 2, 3]),
+      positions: new Float32Array([
+        q[0].x, q[0].y,   // 0 TL
+        q[1].x, q[1].y,   // 1 TR
+        q[2].x, q[2].y,   // 2 BR
+        q[3].x, q[3].y,   // 3 BL
+        c.x,    c.y,      // 4 重心
+      ]),
+      uvs: new Float32Array([
+        0,     0,          // 0 TL
+        1,     0,          // 1 TR
+        1,     1,          // 2 BR
+        0,     1,          // 3 BL
+        puv.u, puv.v,      // 4 重心
+      ]),
+      indices: new Uint32Array([
+        0, 1, 4,   // TL–TR–重心
+        1, 2, 4,   // TR–BR–重心
+        2, 3, 4,   // BR–BL–重心
+        3, 0, 4,   // BL–TL–重心
+      ]),
     })
     this._mesh        = new Mesh({ geometry, texture: this._texture })
     this._mesh.alpha  = this._obj.opacity

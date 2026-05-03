@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Application } from 'pixi.js'
 import { useSceneStore } from './store/sceneStore'
 import { StageManager } from './render/StageManager'
+import { makeRectQuad } from './core/transform/quad'
 import './App.css'
 
 export default function App() {
@@ -63,6 +64,56 @@ export default function App() {
     managerRef.current?.sync(objects, selectedId, mode, showJoints)
   }, [objects, selectedId, mode, showJoints])
 
+  // ── 圖片貼入（Ctrl+V / 右鍵） ──────────────────────────────────────
+  const handleImagePaste = useCallback(async (blob: Blob, name = 'clipboard.png') => {
+    const url = URL.createObjectURL(blob)
+    const img = new Image()
+    img.src = url
+    try { await img.decode() } catch { URL.revokeObjectURL(url); return }
+
+    // 縮放到最大 400px，保持比例
+    const MAX = 400
+    const scale = Math.min(MAX / img.naturalWidth, MAX / img.naturalHeight, 1)
+    const w = Math.round(img.naturalWidth  * scale)
+    const h = Math.round(img.naturalHeight * scale)
+
+    let id = storeGet().selectedId
+    if (!id) {
+      storeGet().addObject()
+      id = storeGet().selectedId
+    }
+    if (!id) return
+
+    const obj = storeGet().objects[id]
+    if (!obj) return
+    const q  = obj.quad
+    const cx = (q[0].x + q[1].x + q[2].x + q[3].x) / 4
+    const cy = (q[0].y + q[1].y + q[2].y + q[3].y) / 4
+
+    storeGet().setBaseQuad(id, makeRectQuad(cx - w / 2, cy - h / 2, w, h))
+    storeGet().setTexture(id, url, name)
+  }, [storeGet])
+
+  // Ctrl+V 全域快捷鍵
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      const items = e.clipboardData?.items
+      if (!items) return
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault()
+          const blob = item.getAsFile()
+          if (blob) handleImagePaste(blob)
+          break
+        }
+      }
+    }
+    document.addEventListener('paste', onPaste)
+    return () => document.removeEventListener('paste', onPaste)
+  }, [handleImagePaste])
+
   const selected     = selectedId       ? objects[selectedId]         : null
   const activeParam  = selectedParamId  ? parameters[selectedParamId] : null
 
@@ -117,7 +168,18 @@ export default function App() {
           </div>
         </aside>
 
-        <div className="canvas-area" ref={canvasRef} />
+        <div className="canvas-area" ref={canvasRef}
+          onContextMenu={async e => {
+            e.preventDefault()
+            try {
+              const items = await navigator.clipboard.read()
+              for (const item of items) {
+                const type = item.types.find(t => t.startsWith('image/'))
+                if (type) { await handleImagePaste(await item.getType(type)); break }
+              }
+            } catch { /* 無剪貼簿權限或無圖片 */ }
+          }}
+        />
 
         {/* ── 右側：屬性 ── */}
         <aside className="panel-right">
@@ -140,7 +202,7 @@ export default function App() {
                   <input type="file" accept="image/*" hidden
                     onChange={e => {
                       const file = e.target.files?.[0]
-                      if (file) setTexture(selected.id, URL.createObjectURL(file), file.name)
+                      if (file) handleImagePaste(file, file.name)
                       e.target.value = ''
                     }} />
                 </label>
