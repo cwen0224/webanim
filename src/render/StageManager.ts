@@ -27,6 +27,8 @@ export class StageManager {
   private drag: DragState | null = null
   private store: StoreActions
   private _pendingBind: { objectId: string; pinId: string } | null = null
+  private _mode: EditorMode = 'select'
+  private _selectedId: string | null = null
 
   constructor(app: Application, store: StoreActions) {
     this.app   = app
@@ -49,6 +51,10 @@ export class StageManager {
     mode: EditorMode,
     showJoints: boolean,
   ) {
+    // 每次 sync 都更新當前 mode 與 selectedId，讓事件監聽器能讀到最新值
+    this._mode       = mode
+    this._selectedId = selectedId
+
     // 移除已刪除的物件
     for (const [id, qm] of this.meshes) {
       if (!objects[id]) {
@@ -65,7 +71,8 @@ export class StageManager {
         qm.container.eventMode = 'static'
         qm.container.on('pointerdown', (e) => {
           e.stopPropagation()
-          this._onObjectDown(e.global as Point, obj.id, mode)
+          // 用 this._mode 確保讀到最新的 mode，而非建立時的舊值
+          this._onObjectDown(e.global as Point, obj.id, this._mode)
         })
         this.meshes.set(obj.id, qm)
         this.app.stage.addChild(qm.container)
