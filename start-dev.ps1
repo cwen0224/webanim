@@ -105,9 +105,7 @@ $waited = 0
 $ready  = $false
 while ($waited -lt 45) {
     try {
-        $tcp = New-Object Net.Sockets.TcpClient
-        $tcp.Connect("localhost", $PORT)
-        $tcp.Close()
+        $r = Invoke-WebRequest -Uri "http://127.0.0.1:$PORT/" -TimeoutSec 1 -UseBasicParsing -ErrorAction Stop
         $ready = $true
         break
     } catch {}
