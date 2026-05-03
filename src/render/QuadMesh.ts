@@ -1,4 +1,4 @@
-import { Mesh, MeshGeometry, Texture, Graphics, Container } from 'pixi.js'
+import { Graphics, Container } from 'pixi.js'
 import type { Quad, Point } from '../core/model/types'
 import { distanceSq } from '../core/transform/quad'
 
@@ -11,34 +11,25 @@ export type DragTarget =
 
 export class QuadMesh {
   readonly container: Container
-  private mesh: Mesh<MeshGeometry>
-  private outline: Graphics
-  private handles: Graphics
-  private _quad: Quad
+  private body:    Graphics
+  private overlay: Graphics
+  private _quad:   Quad
+  private _tint:   number
+  private _opacity: number
   private _selected = false
 
   constructor(quad: Quad, tint: number, opacity: number) {
-    this._quad = quad
+    this._quad    = quad
+    this._tint    = tint
+    this._opacity = opacity
+
     this.container = new Container()
+    this.body      = new Graphics()
+    this.overlay   = new Graphics()
+    this.container.addChild(this.body)
+    this.container.addChild(this.overlay)
 
-    // --- mesh ---
-    const geo = new MeshGeometry({
-      positions: this._flatPositions(),
-      uvs: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]),
-      indices: new Uint32Array([0, 1, 2, 0, 2, 3]),
-    })
-    this.mesh = new Mesh<MeshGeometry>({ geometry: geo, texture: Texture.WHITE })
-    this.mesh.tint = tint
-    this.mesh.alpha = opacity
-    this.container.addChild(this.mesh)
-
-    // --- outline + handles (drawn on demand) ---
-    this.outline = new Graphics()
-    this.handles = new Graphics()
-    this.container.addChild(this.outline)
-    this.container.addChild(this.handles)
-
-    this._redrawOverlay()
+    this._redrawBody()
   }
 
   get quad() { return this._quad }
@@ -50,14 +41,10 @@ export class QuadMesh {
 
   updateQuad(quad: Quad) {
     this._quad = quad
-    const pos = this.mesh.geometry.getBuffer('aPosition')
-    const flat = this._flatPositions()
-    for (let i = 0; i < flat.length; i++) pos.data[i] = flat[i]
-    pos.update()
+    this._redrawBody()
     this._redrawOverlay()
   }
 
-  // returns which drag target was hit, or null
   hitTest(pt: Point): DragTarget | null {
     if (this._selected) {
       for (let i = 0; i < 4; i++) {
@@ -69,36 +56,27 @@ export class QuadMesh {
     return null
   }
 
-  // ── private ──────────────────────────────────────────────────────────
-
-  private _flatPositions(): Float32Array {
+  private _redrawBody() {
     const q = this._quad
-    return new Float32Array([
-      q[0].x, q[0].y,
-      q[1].x, q[1].y,
-      q[2].x, q[2].y,
-      q[3].x, q[3].y,
-    ])
+    this.body.clear()
+    this.body
+      .poly([q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y])
+      .fill({ color: this._tint, alpha: this._opacity })
   }
 
   private _redrawOverlay() {
-    this.outline.clear()
-    this.handles.clear()
+    const q = this._quad
+    this.overlay.clear()
     if (!this._selected) return
 
-    const q = this._quad
-    // outline
-    this.outline
-      .moveTo(q[0].x, q[0].y)
-      .lineTo(q[1].x, q[1].y)
-      .lineTo(q[2].x, q[2].y)
-      .lineTo(q[3].x, q[3].y)
-      .lineTo(q[0].x, q[0].y)
+    // 外框
+    this.overlay
+      .poly([q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y])
       .stroke({ color: 0xffffff, width: 1.5, alpha: 0.9 })
 
-    // corner handles
+    // 角落控制點
     for (const p of q) {
-      this.handles
+      this.overlay
         .circle(p.x, p.y, HANDLE_RADIUS)
         .fill({ color: 0xffffff })
         .circle(p.x, p.y, HANDLE_RADIUS)
@@ -106,7 +84,6 @@ export class QuadMesh {
     }
   }
 
-  // simple point-in-convex-quad test
   private _pointInQuad(pt: Point): boolean {
     const q = this._quad
     for (let i = 0; i < 4; i++) {
