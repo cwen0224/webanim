@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\cwen0\\\\Desktop\\\\ANIMATION\" -Recurse)",
+      "Bash(Select-Object FullName, Length, LastWriteTime)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(mkdir -p \"/mnt/c/Users/cwen0/Desktop/ANIMATION/docs\")",
+      "Read(//mnt/c/Users/cwen0/Desktop/**)",
+      "PowerShell(New-Item *)",
+      "PowerShell(npm *)"
+    ]
+  }
+}
