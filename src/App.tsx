@@ -22,12 +22,9 @@ export default function App() {
     let alive = true
 
     app.init({
-      width: el.clientWidth || 800,
-      height: el.clientHeight || 600,
+      resizeTo: el,
       background: '#2a2a2a',
       antialias: true,
-      resolution: window.devicePixelRatio || 1,
-      autoDensity: true,
     }).then(() => {
       if (!alive) return
       el.appendChild(app.canvas)
