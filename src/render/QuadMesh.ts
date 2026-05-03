@@ -1,4 +1,4 @@
-import { Graphics, Container, Mesh, MeshGeometry, Assets, Texture } from 'pixi.js'
+import { Graphics, Container, Mesh, MeshGeometry, Texture } from 'pixi.js'
 import type { Quad, Point, SceneObject } from '../core/model/types'
 import { uvToWorld, distanceSq } from '../core/transform/quad'
 
@@ -70,9 +70,14 @@ export class QuadMesh {
 
   private async _loadTexture(url: string) {
     try {
-      const texture = await Assets.load<Texture>(url)
+      const img = new Image()
+      await new Promise<void>((res, rej) => {
+        img.onload  = () => res()
+        img.onerror = () => rej(new Error(`Failed to load image: ${url}`))
+        img.src     = url
+      })
       if (this._loadingUrl !== url) return   // URL 已被換掉，忽略
-      this._texture = texture
+      this._texture = Texture.from(img)
       this._updateMesh()
       this.body.clear()
       this._redrawOverlay(this._lastSelected)
@@ -94,7 +99,6 @@ export class QuadMesh {
       pos[4] = q[2].x; pos[5] = q[2].y
       pos[6] = q[3].x; pos[7] = q[3].y
       this._mesh.geometry.getAttribute('aPosition').buffer.update()
-      this._mesh.tint  = this._obj.tint
       this._mesh.alpha = this._obj.opacity
       return
     }
@@ -106,7 +110,6 @@ export class QuadMesh {
       indices:   new Uint32Array([0, 1, 2,  0, 2, 3]),
     })
     this._mesh        = new Mesh({ geometry, texture: this._texture })
-    this._mesh.tint   = this._obj.tint
     this._mesh.alpha  = this._obj.opacity
     this.container.addChildAt(this._mesh, 0)
   }
