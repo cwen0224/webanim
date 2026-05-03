@@ -1,7 +1,7 @@
 import { Application, Graphics } from 'pixi.js'
 import type { Point, Quad, SceneObject } from '../core/model/types'
 import { QuadMesh } from './QuadMesh'
-import { moveQuad } from '../core/transform/quad'
+import { moveQuad, worldToUV } from '../core/transform/quad'
 import type { EditorMode } from '../store/sceneStore'
 
 interface StoreActions {
@@ -155,16 +155,7 @@ export class StageManager {
 
   private _onUp() { this.drag = null }
 
-  // 將世界座標換算為 quad 的 UV 座標（雙線性反算，近似）
-  private _worldToUV(pt: Point, quad: Quad): { u: number; v: number } {
-    const [tl, tr, , bl] = quad
-    const w = Math.sqrt((tr.x - tl.x) ** 2 + (tr.y - tl.y) ** 2) || 1
-    const h = Math.sqrt((bl.x - tl.x) ** 2 + (bl.y - tl.y) ** 2) || 1
-    const dx = pt.x - tl.x
-    const dy = pt.y - tl.y
-    return {
-      u: Math.max(0, Math.min(1, dx / w)),
-      v: Math.max(0, Math.min(1, dy / h)),
-    }
+  private _worldToUV(pt: Point, quad: Quad) {
+    return worldToUV(pt, quad)
   }
 }

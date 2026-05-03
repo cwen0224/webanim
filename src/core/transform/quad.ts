@@ -30,3 +30,32 @@ export function makeRectQuad(x: number, y: number, w: number, h: number): Quad {
 export function distanceSq(a: Point, b: Point): number {
   return (a.x - b.x) ** 2 + (a.y - b.y) ** 2
 }
+
+// 世界座標反算 UV（雙線性反求，Newton-Raphson 迭代，適用任意變形四邊形）
+export function worldToUV(pt: Point, quad: Quad): UV {
+  const [tl, tr, br, bl] = quad
+  let u = 0.5, v = 0.5
+
+  for (let i = 0; i < 24; i++) {
+    const mu = 1 - u, mv = 1 - v
+    const px = mv * (mu * tl.x + u * tr.x) + v * (mu * bl.x + u * br.x)
+    const py = mv * (mu * tl.y + u * tr.y) + v * (mu * bl.y + u * br.y)
+    const rx = pt.x - px
+    const ry = pt.y - py
+    if (rx * rx + ry * ry < 1e-6) break
+
+    // Jacobian ∂P/∂u, ∂P/∂v
+    const ju_x = mv * (tr.x - tl.x) + v * (br.x - bl.x)
+    const ju_y = mv * (tr.y - tl.y) + v * (br.y - bl.y)
+    const jv_x = mu * (bl.x - tl.x) + u * (br.x - tr.x)
+    const jv_y = mu * (bl.y - tl.y) + u * (br.y - tr.y)
+
+    const det = ju_x * jv_y - ju_y * jv_x
+    if (Math.abs(det) < 1e-10) break
+
+    u = Math.max(0, Math.min(1, u + (rx * jv_y - ry * jv_x) / det))
+    v = Math.max(0, Math.min(1, v + (ju_x * ry - ju_y * rx) / det))
+  }
+
+  return { u, v }
+}
