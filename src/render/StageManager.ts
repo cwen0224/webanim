@@ -140,7 +140,10 @@ export class StageManager {
     } else if (this.drag.target.kind === 'rotate') {
       const { pivotWorld, startAngle } = this.drag.target
       const curAngle = Math.atan2(pt.y - pivotWorld.y, pt.x - pivotWorld.x)
-      const delta    = curAngle - startAngle
+      // 取最短旋轉路徑（正規化到 -π ~ π）
+      let delta = curAngle - startAngle
+      while (delta >  Math.PI) delta -= 2 * Math.PI
+      while (delta < -Math.PI) delta += 2 * Math.PI
       const cos = Math.cos(delta), sin = Math.sin(delta)
       const newQ = q.map(p => {
         const rx = p.x - pivotWorld.x, ry = p.y - pivotWorld.y

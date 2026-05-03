@@ -127,11 +127,12 @@
 }
 
 .param-kf-markers {
-  position: absolute; left: 144px; right: 130px; bottom: 2px; height: 4px; pointer-events: none;
+  position: absolute; left: 144px; right: 130px; top: 50%; height: 0; pointer-events: none;
 }
 .kf-marker {
-  position: absolute; width: 4px; height: 8px; background: #ffcc4a;
-  border-radius: 1px; transform: translateX(-50%); top: -2px;
-  cursor: pointer; pointer-events: all;
+  position: absolute; width: 12px; height: 12px; background: #ffcc4a;
+  border-radius: 50%; transform: translate(-50%, -50%);
+  cursor: pointer; pointer-events: all; opacity: 0.75;
+  border: 1.5px solid #aa8800;
 }
-.kf-marker:hover { background: #ff6b6b; }
+.kf-marker:hover { background: #ff6b6b; border-color: #aa2222; opacity: 1; }
