@@ -10,37 +10,42 @@ function lerpPt(a: Point, b: Point, t: number): Point {
 function interpolateQuad(a: Quad, b: Quad, t: number, pivotUV: { u: number; v: number }): Quad {
   const pivotA = uvToWorld(pivotUV, a)
   const pivotB = uvToWorld(pivotUV, b)
-
-  // 計算 a → b 的旋轉角（用第一條邊的方向向量）
-  const edgeA = { x: a[1].x - a[0].x, y: a[1].y - a[0].y }
-  const edgeB = { x: b[1].x - b[0].x, y: b[1].y - b[0].y }
-  const angleA = Math.atan2(edgeA.y, edgeA.x)
-  const angleB = Math.atan2(edgeB.y, edgeB.x)
-  const angle  = angleA + (angleB - angleA) * t
-
-  // 以插值後的重心位置為軸，先旋轉 a 的各頂點
   const pivotT = lerpPt(pivotA, pivotB, t)
-  const cosA   = Math.cos(angleA)
-  const sinA   = Math.sin(angleA)
-  const cosT   = Math.cos(angle)
-  const sinT   = Math.sin(angle)
 
-  const rotated = a.map(p => {
-    // 相對於 pivotA 的座標
-    const rx = p.x - pivotA.x
-    const ry = p.y - pivotA.y
-    // 反旋轉回正軸（消除 a 本身的旋轉）
-    const lx =  rx * cosA + ry * sinA
-    const ly = -rx * sinA + ry * cosA
-    // 套用目標角度並移到插值重心
+  // 用第一條邊方向向量計算旋轉差，正規化到 -π ~ π 取最短弧
+  const edgeA  = { x: a[1].x - a[0].x, y: a[1].y - a[0].y }
+  const edgeB  = { x: b[1].x - b[0].x, y: b[1].y - b[0].y }
+  const angleA = Math.atan2(edgeA.y, edgeA.x)
+  let   delta  = Math.atan2(edgeB.y, edgeB.x) - angleA
+  while (delta >  Math.PI) delta -= 2 * Math.PI
+  while (delta < -Math.PI) delta += 2 * Math.PI
+
+  const cosA = Math.cos(angleA),        sinA = Math.sin(angleA)
+  const cosT = Math.cos(angleA + delta * t), sinT = Math.sin(angleA + delta * t)
+  const cos1 = Math.cos(angleA + delta),     sin1 = Math.sin(angleA + delta)
+
+  return a.map((p, i) => {
+    // 將頂點解旋轉到局部座標（消除 a 自身的旋轉）
+    const rx =  (p.x - pivotA.x) * cosA + (p.y - pivotA.y) * sinA
+    const ry = -(p.x - pivotA.x) * sinA + (p.y - pivotA.y) * cosA
+
+    // 套用插值角度，以插值重心為中心
+    const rotT = {
+      x: pivotT.x + rx * cosT - ry * sinT,
+      y: pivotT.y + rx * sinT + ry * cosT,
+    }
+    // a 完整旋轉到 t=1 的位置（不是 b，是純旋轉結果）
+    const rot1 = {
+      x: pivotB.x + rx * cos1 - ry * sin1,
+      y: pivotB.y + rx * sin1 + ry * cos1,
+    }
+    // 最終 = 旋轉插值 + t × 殘差（縮放 / 梯形形狀差）
+    // 純旋轉時 rot1 == b[i]，殘差為零，不會縮
     return {
-      x: pivotT.x + lx * cosT - ly * sinT,
-      y: pivotT.y + lx * sinT + ly * cosT,
+      x: rotT.x + t * (b[i].x - rot1.x),
+      y: rotT.y + t * (b[i].y - rot1.y),
     }
   }) as Quad
-
-  // 再對旋轉後的結果與 b 做線性補間（處理剩餘的縮放/梯形變形）
-  return rotated.map((p, i) => lerpPt(p, b[i], t)) as Quad
 }
 
 // 計算一個參數在目前值下，各綁定物件的插值 quad
