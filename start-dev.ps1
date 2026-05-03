@@ -30,16 +30,17 @@ function Show-OK($msg) {
 function Show-Abort($msg) {
     Write-Host ""
     Write-Host "  !! ERROR: $msg" -ForegroundColor Red
-    Write-Host ""
     Write-Log "ERROR: $msg"
     Write-Log "Launch failed"
-    Write-Host "  --- Full Log ---" -ForegroundColor Yellow
-    Get-Content $LOG | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+    # 自動用記事本開啟 log，方便複製貼給 AI
     Write-Host ""
-    Write-Host "  Log saved at: $LOG" -ForegroundColor Yellow
-    Write-Host "  (Copy the log above and send to AI for debugging)" -ForegroundColor Gray
+    Write-Host "  Log: $LOG" -ForegroundColor Yellow
+    Write-Host "  Opening log in Notepad..." -ForegroundColor Gray
+    Start-Process "notepad.exe" -ArgumentList $LOG
     Write-Host ""
-    Write-Host "Press any key to close..."
+    Write-Host "  Copy the log from Notepad and send to AI for help."
+    Write-Host ""
+    Write-Host "Press any key to close this window..."
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     exit 1
 }
