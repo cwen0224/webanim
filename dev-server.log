@@ -1,0 +1,33 @@
+﻿[05/03/2026 18:02:36] === WebAnim Dev Server Log ===
+[05/03/2026 18:02:36] Dir: C:\Users\cwen0\Desktop\ANIMATION
+[18:02:36] STEP 1/5 Checking Node.js
+[18:02:36] Node.js v24.14.1
+[18:02:36] OK: Node.js v24.14.1
+[18:02:36] STEP 2/5 Checking npm
+[18:02:37] npm 11.11.0
+[18:02:37] OK: npm 11.11.0
+[18:02:37] STEP 3/5 Checking node_modules
+[18:02:37] OK: node_modules ready
+[18:02:37] STEP 4/5 Starting Vite Dev Server
+[18:02:37] Launching: npm run dev
+[18:02:37] Vite process launched
+[18:02:37] OK: Vite launched (minimized in taskbar)
+[18:02:37] STEP 5/5 Waiting for server on port 5173
+
+> webanim@0.1.0 dev
+> vite
+
+
+  [32m[1mVITE[22m v6.4.2[39m  [2mready in [0m[1m306[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/webanim/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2m下午6:28:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/main.tsx[22m
+[2m下午6:32:34[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m下午6:32:37[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.css[22m
+[2m下午6:35:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m下午6:35:26[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m下午6:35:48[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m下午6:36:14[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m下午6:36:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.css[22m

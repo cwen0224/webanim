@@ -12,7 +12,8 @@
       "PowerShell(gh auth *)",
       "PowerShell(gh api *)",
       "PowerShell(gh workflow *)",
-      "PowerShell(gh run *)"
+      "PowerShell(gh run *)",
+      "Bash(npm run *)"
     ]
   }
 }
