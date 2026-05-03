@@ -134,7 +134,7 @@ Write-Host "  Stop : close 'WebAnim Dev Server' in taskbar" -ForegroundColor Gra
 Write-Host "  Log  : $LOG" -ForegroundColor Gray
 Write-Host ""
 
-Start-Process $URL
+Start-Process "cmd.exe" -ArgumentList "/c", "start", "", $URL
 Write-Log "Browser opened: $URL"
 
 Write-Host "  ----------- Live Log (Ctrl+C to exit) -----------" -ForegroundColor Gray
