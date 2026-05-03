@@ -123,18 +123,19 @@
 .param-val  { font-size: 11px; color: #666; width: 28px; text-align: right; flex-shrink: 0; font-family: monospace; }
 
 .slider-wrap {
-  flex: 1; position: relative; display: flex; align-items: center; min-width: 0;
+  flex: 1; display: flex; flex-direction: column; min-width: 0; gap: 1px;
 }
 .param-slider {
-  width: 100%; height: 3px; cursor: pointer; accent-color: #4a9eff;
+  width: 100%; cursor: pointer; accent-color: #4a9eff;
 }
 .param-kf-markers {
-  position: absolute; left: 0; right: 0; top: 50%; height: 0; pointer-events: none;
+  position: relative; width: 100%; height: 8px; flex-shrink: 0; pointer-events: none;
 }
 .kf-marker {
-  position: absolute; width: 12px; height: 12px; background: #ffcc4a;
-  border-radius: 50%; transform: translate(-50%, -50%);
-  cursor: pointer; pointer-events: all; opacity: 0.75;
-  border: 1.5px solid #aa8800;
+  position: absolute; width: 10px; height: 10px; background: #ffcc4a;
+  border-radius: 50%; transform: translateX(-50%);
+  top: 0;
+  cursor: pointer; pointer-events: all; opacity: 0.8;
+  border: 1.5px solid #996600;
 }
 .kf-marker:hover { background: #ff6b6b; border-color: #aa2222; opacity: 1; }
