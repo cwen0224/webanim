@@ -16,10 +16,12 @@ interface SceneStore {
   showJoints: boolean
 
   // 物件
-  addObject:       (obj?: Partial<SceneObject>) => void
-  updateQuad:      (id: string, quad: Quad) => void
-  select:          (id: string | null) => void
-  deleteSelected:  () => void
+  addObject:          (obj?: Partial<SceneObject>) => void
+  updateQuad:         (id: string, quad: Quad) => void
+  setBaseQuad:        (id: string, quad: Quad) => void  // 拖曳中：繞過參數插值
+  autoRecordKeyframe: (id: string) => void              // 拖完：自動更新關鍵幀
+  select:             (id: string | null) => void
+  deleteSelected:     () => void
 
   // 重心與插銷
   setPivotUV: (id: string, uv: UV) => void
@@ -104,6 +106,36 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
         s.parameters,
       ),
     }))
+  },
+
+  // 拖曳中直接設 quad，只跑約束、不跑參數插值（避免互相蓋掉）
+  setBaseQuad: (id, quad) => {
+    set(s => ({
+      objects: applyConstraints({ ...s.objects, [id]: { ...s.objects[id], quad } }),
+    }))
+  },
+
+  // 拖完後，對所有綁定此物件的參數，在目前參數值自動記錄/覆蓋關鍵幀
+  autoRecordKeyframe: (id) => {
+    const { parameters, objects } = get()
+    const boundParams = Object.values(parameters).filter(p => p.boundObjectIds.includes(id))
+    if (boundParams.length === 0) return
+    set(s => {
+      let newParams = { ...s.parameters }
+      for (const param of boundParams) {
+        const t      = param.value
+        const quads: Record<string, Quad> = {}
+        for (const oid of param.boundObjectIds) {
+          if (s.objects[oid]) quads[oid] = s.objects[oid].quad
+        }
+        const existing = param.keyframes.findIndex(kf => Math.abs(kf.t - t) < 0.001)
+        const newKfs = existing >= 0
+          ? param.keyframes.map((kf, i) => i === existing ? { t, quads } : kf)
+          : [...param.keyframes, { t, quads }].sort((a, b) => a.t - b.t)
+        newParams[param.id] = { ...param, keyframes: newKfs }
+      }
+      return { parameters: newParams }
+    })
   },
 
   select:  (id) => set({ selectedId: id }),

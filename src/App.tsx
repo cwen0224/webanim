@@ -44,12 +44,13 @@ export default function App() {
       if (destroyed || !canvasRef.current) return
       el.appendChild(app.canvas)
       const mgr = new StageManager(app, {
-        select:     id  => storeGet().select(id),
-        updateQuad: (id, q) => storeGet().updateQuad(id, q),
-        setPivotUV: (id, uv) => storeGet().setPivotUV(id, uv),
-        addPin:     (id, uv) => storeGet().addPin(id, uv),
-        bindPin:    (oid, pid, tid) => storeGet().bindPin(oid, pid, tid),
-        setMode:    m => storeGet().setMode(m),
+        select:             id       => storeGet().select(id),
+        setBaseQuad:        (id, q)  => storeGet().setBaseQuad(id, q),
+        autoRecordKeyframe: id       => storeGet().autoRecordKeyframe(id),
+        setPivotUV:         (id, uv) => storeGet().setPivotUV(id, uv),
+        addPin:             (id, uv) => storeGet().addPin(id, uv),
+        bindPin:            (oid, pid, tid) => storeGet().bindPin(oid, pid, tid),
+        setMode:            m        => storeGet().setMode(m),
       })
       managerRef.current = mgr
     })

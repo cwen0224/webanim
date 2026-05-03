@@ -1,21 +1,28 @@
 import { Application, Graphics } from 'pixi.js'
 import type { Point, Quad, SceneObject } from '../core/model/types'
 import { QuadMesh } from './QuadMesh'
-import { moveQuad, worldToUV } from '../core/transform/quad'
+import { moveQuad, worldToUV, uvToWorld } from '../core/transform/quad'
 import type { EditorMode } from '../store/sceneStore'
 
 interface StoreActions {
-  select:     (id: string | null) => void
-  updateQuad: (id: string, quad: Quad) => void
-  setPivotUV: (id: string, uv: { u: number; v: number }) => void
-  addPin:     (id: string, uv: { u: number; v: number }) => string
-  bindPin:    (objectId: string, pinId: string, targetObjectId: string) => void
-  setMode:    (mode: EditorMode) => void
+  select:              (id: string | null) => void
+  setBaseQuad:         (id: string, quad: Quad) => void   // 繞過參數，直接設 quad
+  autoRecordKeyframe:  (id: string) => void               // 拖完後自動記錄關鍵幀
+  setPivotUV:          (id: string, uv: { u: number; v: number }) => void
+  addPin:              (id: string, uv: { u: number; v: number }) => string
+  bindPin:             (objectId: string, pinId: string, targetObjectId: string) => void
+  setMode:             (mode: EditorMode) => void
 }
+
+type DragKind =
+  | { kind: 'corner'; index: number }
+  | { kind: 'pivot' }
+  | { kind: 'rotate'; pivotWorld: Point; startAngle: number }
+  | { kind: 'body' }
 
 interface DragState {
   meshId:    string
-  target:    { kind: 'corner'; index: number } | { kind: 'pivot' } | { kind: 'body' }
+  target:    DragKind
   startPt:   Point
   startQuad: Quad
 }
@@ -28,7 +35,6 @@ export class StageManager {
   private store: StoreActions
   private _pendingBind: { objectId: string; pinId: string } | null = null
   private _mode: EditorMode = 'select'
-  private _selectedId: string | null = null
 
   constructor(app: Application, store: StoreActions) {
     this.app   = app
@@ -51,18 +57,12 @@ export class StageManager {
     mode: EditorMode,
     showJoints: boolean,
   ) {
-    // 每次 sync 都更新當前 mode 與 selectedId，讓事件監聽器能讀到最新值
-    this._mode       = mode
-    this._selectedId = selectedId
+    this._mode = mode
 
-    // 移除已刪除的物件
     for (const [id, qm] of this.meshes) {
-      if (!objects[id]) {
-        this.app.stage.removeChild(qm.container)
-        this.meshes.delete(id)
-      }
+      if (!objects[id]) { this.app.stage.removeChild(qm.container); this.meshes.delete(id) }
     }
-    // 新增 / 更新
+
     const sorted = Object.values(objects).sort((a, b) => a.zIndex - b.zIndex)
     for (const obj of sorted) {
       let qm = this.meshes.get(obj.id)
@@ -71,7 +71,6 @@ export class StageManager {
         qm.container.eventMode = 'static'
         qm.container.on('pointerdown', (e) => {
           e.stopPropagation()
-          // 用 this._mode 確保讀到最新的 mode，而非建立時的舊值
           this._onObjectDown(e.global as Point, obj.id, this._mode)
         })
         this.meshes.set(obj.id, qm)
@@ -81,25 +80,15 @@ export class StageManager {
     }
   }
 
-  setPendingBind(objectId: string, pinId: string) {
-    this._pendingBind = { objectId, pinId }
-  }
-
-  clearPendingBind() {
-    this._pendingBind = null
-  }
+  setPendingBind(objectId: string, pinId: string) { this._pendingBind = { objectId, pinId } }
+  clearPendingBind()                               { this._pendingBind = null }
 
   private _onBgClick(_pt: Point) {
-    if (this._pendingBind) {
-      this._pendingBind = null
-      this.store.setMode('select')
-      return
-    }
+    if (this._pendingBind) { this._pendingBind = null; this.store.setMode('select'); return }
     this.store.select(null)
   }
 
   private _onObjectDown(pt: Point, id: string, mode: EditorMode) {
-    // bind 模式：點擊目標物件的重心完成綁定
     if (mode === 'bind' && this._pendingBind && this._pendingBind.objectId !== id) {
       this.store.bindPin(this._pendingBind.objectId, this._pendingBind.pinId, id)
       this._pendingBind = null
@@ -107,25 +96,29 @@ export class StageManager {
       return
     }
 
-    // addPin 模式：在此物件上點擊位置新增插銷
     if (mode === 'addPin') {
       const qm = this.meshes.get(id)
-      if (qm) {
-        const uv = this._worldToUV(pt, qm.quad)
-        this.store.addPin(id, uv)
-      }
+      if (qm) this.store.addPin(id, worldToUV(pt, qm.quad))
       this.store.setMode('select')
       this.store.select(id)
       return
     }
 
-    // select 模式
     this.store.select(id)
     const qm = this.meshes.get(id)
     if (!qm) return
     const hit = qm.hitTest(pt, true)
     if (!hit) return
-    this.drag = { meshId: id, target: hit, startPt: { ...pt }, startQuad: [...qm.quad] as Quad }
+
+    if (hit.kind === 'rotate') {
+      const pivotWorld = uvToWorld(qm['_obj' as never] ? (qm as any)._obj.pivot.uv : { u: 0.5, v: 0.5 }, qm.quad)
+      this.drag = {
+        meshId: id, startPt: { ...pt }, startQuad: [...qm.quad] as Quad,
+        target: { kind: 'rotate', pivotWorld, startAngle: Math.atan2(pt.y - pivotWorld.y, pt.x - pivotWorld.x) },
+      }
+    } else {
+      this.drag = { meshId: id, target: hit, startPt: { ...pt }, startQuad: [...qm.quad] as Quad }
+    }
   }
 
   private _onMove(e: { global: { x: number; y: number } }) {
@@ -136,26 +129,43 @@ export class StageManager {
     const q  = [...this.drag.startQuad] as Quad
 
     if (this.drag.target.kind === 'body') {
-      this.store.updateQuad(this.drag.meshId, moveQuad(q, dx, dy))
+      this.store.setBaseQuad(this.drag.meshId, moveQuad(q, dx, dy))
+
     } else if (this.drag.target.kind === 'corner') {
       const i = this.drag.target.index
       const newQ = [...q] as Quad
       newQ[i] = { x: q[i].x + dx, y: q[i].y + dy }
-      this.store.updateQuad(this.drag.meshId, newQ)
+      this.store.setBaseQuad(this.drag.meshId, newQ)
+
+    } else if (this.drag.target.kind === 'rotate') {
+      const { pivotWorld, startAngle } = this.drag.target
+      const curAngle = Math.atan2(pt.y - pivotWorld.y, pt.x - pivotWorld.x)
+      const delta    = curAngle - startAngle
+      const cos = Math.cos(delta), sin = Math.sin(delta)
+      const newQ = q.map(p => {
+        const rx = p.x - pivotWorld.x, ry = p.y - pivotWorld.y
+        return { x: pivotWorld.x + rx * cos - ry * sin, y: pivotWorld.y + rx * sin + ry * cos }
+      }) as Quad
+      this.store.setBaseQuad(this.drag.meshId, newQ)
+
     } else if (this.drag.target.kind === 'pivot') {
-      // 拖移重心：更新 UV 座標
       const qm = this.meshes.get(this.drag.meshId)
       if (qm) {
         const newWorld = { x: this.drag.startPt.x + dx, y: this.drag.startPt.y + dy }
-        const uv = this._worldToUV(newWorld, q)
-        this.store.setPivotUV(this.drag.meshId, uv)
+        this.store.setPivotUV(this.drag.meshId, worldToUV(newWorld, q))
       }
     }
   }
 
-  private _onUp() { this.drag = null }
-
-  private _worldToUV(pt: Point, quad: Quad) {
-    return worldToUV(pt, quad)
+  private _onUp() {
+    if (this.drag) {
+      const id = this.drag.meshId
+      const kind = this.drag.target.kind
+      // 拖完後，若有參數綁定就自動更新關鍵幀
+      if (kind === 'body' || kind === 'corner' || kind === 'rotate') {
+        this.store.autoRecordKeyframe(id)
+      }
+      this.drag = null
+    }
   }
 }
