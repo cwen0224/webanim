@@ -223,23 +223,28 @@ export default function App() {
                 onClick={() => selectParameter(isActive ? null : param.id)}>
                 <span className="param-name">{param.name}</span>
                 <span className="param-val">{param.value.toFixed(0)}</span>
-                <input
-                  type="range"
-                  className="param-slider"
-                  min={param.min} max={param.max} step={0.5}
-                  value={param.value}
-                  onChange={e => setParameterValue(param.id, parseFloat(e.target.value))}
-                  onClick={e => e.stopPropagation()}
-                />
-                <div className="param-kf-markers">
-                  {param.keyframes.map(kf => (
-                    <span key={kf.t}
-                      className="kf-marker"
-                      style={{ left: `${((kf.t - param.min) / (param.max - param.min)) * 100}%` }}
-                      title={`關鍵幀 t=${kf.t}`}
-                      onClick={e => { e.stopPropagation(); deleteKeyframe(param.id, kf.t) }}
-                    />
-                  ))}
+                <div className="slider-wrap">
+                  <input
+                    type="range"
+                    className="param-slider"
+                    min={param.min} max={param.max} step={0.5}
+                    value={param.value}
+                    onChange={e => setParameterValue(param.id, parseFloat(e.target.value))}
+                    onClick={e => e.stopPropagation()}
+                  />
+                  <div className="param-kf-markers">
+                    {param.keyframes.map(kf => {
+                      const pct = (kf.t - param.min) / (param.max - param.min)
+                      return (
+                        <span key={kf.t}
+                          className="kf-marker"
+                          style={{ left: `calc(${pct.toFixed(4)} * (100% - 16px) + 8px)` }}
+                          title={`關鍵幀 t=${kf.t}`}
+                          onClick={e => { e.stopPropagation(); deleteKeyframe(param.id, kf.t) }}
+                        />
+                      )
+                    })}
+                  </div>
                 </div>
                 <button
                   className={`btn-inline ${atKf ? 'warn' : ''}`}
