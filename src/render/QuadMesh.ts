@@ -256,25 +256,42 @@ export class QuadMesh {
         .poly([q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y])
         .stroke({ color: rimColor, width: 1.5, alpha: 0.8 })
 
-      // 轉動把手連接線
+      // 轉動把手連接線與隱形觸控區
       const rh     = this._rotHandlePos(q)
       const topMid = { x: (q[0].x + q[1].x) / 2, y: (q[0].y + q[1].y) / 2 }
       this.overlay
         .moveTo(topMid.x, topMid.y).lineTo(rh.x, rh.y)
         .stroke({ color: 0xffffff, width: 1, alpha: 0.5 })
+      this.overlay.circle(rh.x, rh.y, HANDLE_HIT).fill({ color: 0xffffff, alpha: 0.001 })
 
-      // 縮放把手連接線
+      // 縮放把手連接線與隱形觸控區
       const sh = this._scaleHandlePos(q)
       this.overlay
         .moveTo(q[1].x, q[1].y).lineTo(sh.x, sh.y)
         .stroke({ color: 0xffffff, width: 1, alpha: 0.4 })
+      this.overlay.circle(sh.x, sh.y, HANDLE_HIT).fill({ color: 0xffffff, alpha: 0.001 })
     }
-    // 角落控制點、旋轉把手、縮放把手 → 全部移到 SVG overlay
+    // 角落控制點隱形觸控區
+    for (let i = 0; i < 4; i++) {
+      if (selected || selectedCorners.includes(i)) {
+        this.overlay.circle(q[i].x, q[i].y, HANDLE_HIT).fill({ color: 0xffffff, alpha: 0.001 })
+      }
+    }
   }
 
-  private _redrawJoints(_show: boolean) {
-    // 重心圓與插銷菱形全部移到 SVG overlay，這裡不再繪製
+  private _redrawJoints(show: boolean) {
     this.joints.clear()
+    if (!show) return
+    const q = this._obj.quad
+
+    // 雖然視覺移到 SVG 了，但必須在 PixiJS 畫隱形圓形讓 container 接觸得到滑鼠
+    const pv = uvToWorld(this._obj.pivot.uv, q)
+    this.joints.circle(pv.x, pv.y, HANDLE_HIT).fill({ color: 0xffffff, alpha: 0.001 })
+
+    for (const pin of this._obj.pins) {
+      const pw = uvToWorld(pin.uv, q)
+      this.joints.circle(pw.x, pw.y, HANDLE_HIT).fill({ color: 0xffffff, alpha: 0.001 })
+    }
   }
 
   // ── 公開：回傳 SVG gizmo 所需的所有位置資料 ──────────────────────
