@@ -292,7 +292,7 @@ export default function App() {
       {/* ── 工具列 ── */}
       <header className="toolbar">
         <span className="logo">WebAnim</span>
-        <span className="version">Phase 3 — 參數系統</span>
+        <span className="version">Phase 3 — 參數系統 (Rev 4)</span>
         <span className={`mode-badge ${mode !== 'select' ? 'active' : selectedVertices.length > 0 ? 'active' : ''}`}>
           {modeLabels[mode]}
         </span>
