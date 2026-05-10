@@ -437,10 +437,15 @@ export class StageManager {
       if (!cached) {
         const rt     = RenderTexture.create({ width: W, height: H })
         const sprite = new Sprite(rt)
-        // channel: 'alpha' → 明確讀取 PNG 的 alpha 通道（而非 RGB 亮度）
-        const am     = new AlphaMask({ mask: sprite, channel: 'alpha' as any })
+        
+        // 在 PixiJS v8，AlphaMask 的 constructor 參數不收 channel，必須另外設定
+        const am     = new AlphaMask({ mask: sprite })
+        am.channel   = 'alpha'
+        
         cached = { rt, sprite, am, mode: 'positive' }
         this.maskGfxMap.set(key, cached)
+        
+        // 必須給 AlphaMask 而非 Sprite，否則預設會用 RGB (red) 來當遮罩
         qm.container.mask = am
       }
 
