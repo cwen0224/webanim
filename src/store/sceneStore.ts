@@ -65,7 +65,6 @@ interface SceneStore {
   // 遮罩
   addMask:    (objectId: string, maskObjectId: string) => void
   removeMask: (objectId: string, maskObjectId: string) => void
-  setMaskMode:(objectId: string, maskObjectId: string, mode: MaskMode) => void
 
   // 歷史
   pushHistory: () => void
@@ -536,14 +535,9 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
     }))
   },
 
-  removeMask: (objectId, maskObjectId) => set(s => ({
+  removeMask: (objectId: string, maskObjectId: string) => set(s => ({
     ...snap(s),
     objects: { ...s.objects, [objectId]: { ...s.objects[objectId], masks: s.objects[objectId].masks.filter(m => m.maskObjectId !== maskObjectId) } },
-  })),
-
-  setMaskMode: (objectId, maskObjectId, mode) => set(s => ({
-    ...snap(s),
-    objects: { ...s.objects, [objectId]: { ...s.objects[objectId], masks: s.objects[objectId].masks.map(m => m.maskObjectId === maskObjectId ? { ...m, mode } : m) } },
   })),
 
   // ── 歷史 ──────────────────────────────────────────────────────────

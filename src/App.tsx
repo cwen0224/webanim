@@ -38,7 +38,6 @@ export default function App() {
   const redo             = useSceneStore(s => s.redo)
   const addMask          = useSceneStore(s => s.addMask)
   const removeMask       = useSceneStore(s => s.removeMask)
-  const setMaskMode      = useSceneStore(s => s.setMaskMode)
   const storeGet         = useSceneStore.getState
 
   // 新增參數 dialog 狀態
@@ -573,20 +572,13 @@ export default function App() {
                     <span className="mask-dot" />
                     <span className="pin-name">{maskObj?.name ?? '（已刪除）'}</span>
                     <div className="pin-actions">
-                      <button
-                        className={`btn-inline ${m.mode === 'negative' ? 'warn' : ''}`}
-                        title="切換遮罩模式：正（PNG輪廓顯示）→ 反（PNG輪廓鏤空）"
-                        onClick={() => {
-                          const next = m.mode === 'positive' ? 'negative' : 'positive'
-                          setMaskMode(selected.id, m.maskObjectId, next)
-                        }}
-                      >{m.mode === 'positive' ? '正' : '反'}</button>
                       <button className="btn-inline danger"
                         onClick={() => removeMask(selected.id, m.maskObjectId)}>✕</button>
                     </div>
                   </div>
                 )
               })}
+
 
               {/* 綁定到參數 */}
               {Object.keys(parameters).length > 0 && (

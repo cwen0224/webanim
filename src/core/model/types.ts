@@ -23,7 +23,7 @@ export interface DeformerBinding {
   deformerRestQuad: Quad   // binding 時變形器的 quad（作為子物件形變的參考系）
 }
 
-export type MaskMode = 'positive' | 'negative'
+export type MaskMode = 'positive'
 
 export interface MaskEntry {
   maskObjectId: string

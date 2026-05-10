@@ -434,27 +434,19 @@ export class StageManager {
       const key = `${obj.id}|${entry.maskObjectId}`
       let cached = this.maskGfxMap.get(key)
 
-      // 模式切換（正 ↔ 反）→ 重建 AlphaMask（inverse 不同）
-      if (cached && cached.mode !== entry.mode) {
-        qm.container.mask = null
-        cached.rt.destroy(true)
-        this.maskGfxMap.delete(key)
-        cached = undefined
-      }
-
       if (!cached) {
-        const rt      = RenderTexture.create({ width: W, height: H })
-        const sprite  = new Sprite(rt)
-        const inverse = entry.mode === 'negative'
-        const am      = new AlphaMask({ mask: sprite, inverse })
-        cached = { rt, sprite, am, mode: entry.mode }
+        const rt     = RenderTexture.create({ width: W, height: H })
+        const sprite = new Sprite(rt)
+        // channel: 'alpha' → 明確讀取 PNG 的 alpha 通道（而非 RGB 亮度）
+        const am     = new AlphaMask({ mask: sprite, channel: 'alpha' as any })
+        cached = { rt, sprite, am, mode: 'positive' }
         this.maskGfxMap.set(key, cached)
         qm.container.mask = am
       }
 
       try {
-        // 正遮罩與反遮罩都把 PNG 的視覺層（含 alpha）render 到 RT
-        // AlphaMask.inverse 控制「有 alpha → 顯示」或「有 alpha → 隱藏」
+        // 把遮罩物件的 PNG 視覺層（含 alpha）render 到 RT
+        // AlphaMask 依 alpha 通道裁切：PNG 不透明處顯示，透明處隱藏
         maskQm.renderVisual(this.app.renderer, cached.rt, true, 'normal')
       } catch (err) {
         console.error('[_syncMasks] render error:', err)
@@ -475,6 +467,7 @@ export class StageManager {
       }
     }
   }
+
 
   // ── 套索選取 gizmo ─────────────────────────────────────────────────
 
