@@ -150,6 +150,34 @@ export class StageManager {
   setPendingMaskPick(objectId: string) { this._pendingMaskPick = objectId }
   clearPendingMaskPick()               { this._pendingMaskPick = null }
 
+  /** 回傳所有 mesh 的 SVG gizmo 資料，供 React SVG overlay 繪製向量把手 */
+  getGizmos(
+    objects: Record<string, SceneObject>,
+    selectedId: string | null,
+    showJoints: boolean,
+    selectedVertices: VertexRef[],
+  ) {
+    const result: {
+      id: string
+      corners:  { x: number; y: number; highlight: boolean }[]
+      pivot:    { x: number; y: number } | null
+      pins:     { pos: { x: number; y: number }; bound: boolean }[]
+      rotH:     { x: number; y: number } | null
+      scaleH:   { x: number; y: number } | null
+      isDeformer: boolean
+    }[] = []
+
+    for (const obj of Object.values(objects)) {
+      const qm = this.meshes.get(obj.id)
+      if (!qm) continue
+      const selected        = obj.id === selectedId
+      const selCorners      = selectedVertices.filter(v => v.objId === obj.id).map(v => v.cornerIndex)
+      if (!selected && selCorners.length === 0 && !showJoints) continue
+      result.push({ id: obj.id, ...qm.getGizmoData(selected, showJoints, selCorners) })
+    }
+    return result
+  }
+
   private _onBgDown(e: { global: Point; shiftKey: boolean }) {
     const pt = e.global
     if (this._pendingBind)         { this._pendingBind = null;         this.store.setMode('select'); return }
@@ -369,6 +397,11 @@ export class StageManager {
         ids.forEach(id => this.store.autoRecordKeyframe(id))
       }
       this.drag = null
+      // selRotate 拖曳結束後，把手跟著游標停在落點，
+      // 必須重畫讓它回到靜止位置（頂部中點上方）才不會卡住
+      if (kind === 'selRotate') {
+        this._drawSelGizmo(this._selectedVertices)
+      }
     }
   }
 

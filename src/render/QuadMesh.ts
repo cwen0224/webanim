@@ -247,84 +247,59 @@ export class QuadMesh {
     this.overlay.clear()
     if (!selected && selectedCorners.length === 0) return
 
-    const isD       = this._obj.isDeformer
-    const rimColor  = isD ? 0x44aaff : 0xffffff
-    const dotStroke = isD ? 0x0066cc : 0x4a9eff
+    const isD      = this._obj.isDeformer
+    const rimColor = isD ? 0x44aaff : 0xffffff
 
     if (selected) {
-      // 外框
+      // 外框線（保留在 PixiJS，只是線條）
       this.overlay
         .poly([q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y])
         .stroke({ color: rimColor, width: 1.5, alpha: 0.8 })
-    }
 
-    // 角落控制點（被 lasso 選中的端點顯示黃色）
-    for (let i = 0; i < 4; i++) {
-      const p           = q[i]
-      const isHighlight = selectedCorners.includes(i)
-      if (!selected && !isHighlight) continue
-      const fillColor = isHighlight ? 0xffee00 : rimColor
-      this.overlay
-        .circle(p.x, p.y, HANDLE_RADIUS)
-        .fill({ color: fillColor })
-        .circle(p.x, p.y, HANDLE_RADIUS)
-        .stroke({ color: dotStroke, width: 2 })
-    }
-
-    if (selected) {
-      // 轉動把手
+      // 轉動把手連接線
       const rh     = this._rotHandlePos(q)
       const topMid = { x: (q[0].x + q[1].x) / 2, y: (q[0].y + q[1].y) / 2 }
       this.overlay
         .moveTo(topMid.x, topMid.y).lineTo(rh.x, rh.y)
         .stroke({ color: 0xffffff, width: 1, alpha: 0.5 })
-      this.overlay
-        .circle(rh.x, rh.y, ROT_HANDLE_R).fill({ color: 0x22cc88 })
-        .circle(rh.x, rh.y, ROT_HANDLE_R).stroke({ color: 0xffffff, width: 1.5 })
-      this.overlay
-        .circle(rh.x, rh.y, ROT_HANDLE_R - 2).stroke({ color: 0xffffff, width: 1, alpha: 0.4 })
 
-      // 縮放把手（右上角，橙色箭頭菱形）
+      // 縮放把手連接線
       const sh = this._scaleHandlePos(q)
       this.overlay
         .moveTo(q[1].x, q[1].y).lineTo(sh.x, sh.y)
         .stroke({ color: 0xffffff, width: 1, alpha: 0.4 })
-      const ss = SCALE_HANDLE_R
-      this.overlay
-        .poly([sh.x, sh.y - ss, sh.x + ss, sh.y, sh.x, sh.y + ss, sh.x - ss, sh.y])
-        .fill({ color: 0xff8c00 })
-        .poly([sh.x, sh.y - ss, sh.x + ss, sh.y, sh.x, sh.y + ss, sh.x - ss, sh.y])
-        .stroke({ color: 0xffffff, width: 1.5 })
     }
+    // 角落控制點、旋轉把手、縮放把手 → 全部移到 SVG overlay
   }
 
-  private _redrawJoints(show: boolean) {
+  private _redrawJoints(_show: boolean) {
+    // 重心圓與插銷菱形全部移到 SVG overlay，這裡不再繪製
     this.joints.clear()
-    if (!show) return
-    const q = this._obj.quad
+  }
 
-    // 重心（橘色十字圓）
-    const pv = uvToWorld(this._obj.pivot.uv, q)
-    this.joints
-      .circle(pv.x, pv.y, PIVOT_RADIUS)
-      .stroke({ color: 0xff8800, width: 2, alpha: 0.9 })
-    this.joints
-      .moveTo(pv.x - PIVOT_RADIUS - 3, pv.y).lineTo(pv.x + PIVOT_RADIUS + 3, pv.y)
-      .stroke({ color: 0xff8800, width: 1.5, alpha: 0.9 })
-    this.joints
-      .moveTo(pv.x, pv.y - PIVOT_RADIUS - 3).lineTo(pv.x, pv.y + PIVOT_RADIUS + 3)
-      .stroke({ color: 0xff8800, width: 1.5, alpha: 0.9 })
+  // ── 公開：回傳 SVG gizmo 所需的所有位置資料 ──────────────────────
+  getGizmoData(selected: boolean, showJoints: boolean, selectedCorners: number[]) {
+    const q    = this._obj.quad
+    const isD  = this._obj.isDeformer
 
-    // 插銷（藍/青菱形）
-    for (const pin of this._obj.pins) {
-      const pw = uvToWorld(pin.uv, q)
-      const s  = PIN_SIZE
-      this.joints
-        .poly([pw.x, pw.y - s, pw.x + s, pw.y, pw.x, pw.y + s, pw.x - s, pw.y])
-        .fill({ color: pin.boundToObjectId ? 0x00ffcc : 0x4a9eff, alpha: 0.9 })
-        .poly([pw.x, pw.y - s, pw.x + s, pw.y, pw.x, pw.y + s, pw.x - s, pw.y])
-        .stroke({ color: 0xffffff, width: 1 })
+    const corners: { x: number; y: number; highlight: boolean }[] = []
+    if (selected) {
+      for (let i = 0; i < 4; i++)
+        corners.push({ x: q[i].x, y: q[i].y, highlight: selectedCorners.includes(i) })
+    } else {
+      for (const ci of selectedCorners)
+        corners.push({ x: q[ci].x, y: q[ci].y, highlight: true })
     }
+
+    const pivot   = showJoints ? uvToWorld(this._obj.pivot.uv, q) : null
+    const pins    = showJoints ? this._obj.pins.map(p => ({
+      pos:   uvToWorld(p.uv, q),
+      bound: !!p.boundToObjectId,
+    })) : []
+    const rotH    = selected ? this._rotHandlePos(q) : null
+    const scaleH  = selected ? this._scaleHandlePos(q) : null
+
+    return { corners, pivot, pins, rotH, scaleH, isDeformer: isD }
   }
 
   // 轉動把手的世界座標（頂邊中點往外 ROT_OFFSET px）

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { Application } from 'pixi.js'
 import { useSceneStore } from './store/sceneStore'
 import { StageManager } from './render/StageManager'
@@ -47,6 +47,23 @@ export default function App() {
 
   // 迷你滑桿位置凍結（拖曳期間固定，放開才移動）
   const [frozenMiniPos, setFrozenMiniPos] = useState<{x:number;y:number} | null>(null)
+
+  // SVG gizmo overlay
+  type GizmoEntry = ReturnType<import('./render/StageManager').StageManager['getGizmos']>[number]
+  const [gizmos, setGizmos] = useState<GizmoEntry[]>([])
+  const rafRef = useRef<number>(0)
+
+  // 用 rAF 每幀從 StageManager 取最新把手位置
+  useEffect(() => {
+    const loop = () => {
+      const mgr = managerRef.current
+      const s   = storeGet()
+      if (mgr) setGizmos(mgr.getGizmos(s.objects, s.selectedId, s.showJoints, s.selectedVertices))
+      rafRef.current = requestAnimationFrame(loop)
+    }
+    rafRef.current = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [storeGet])
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -378,6 +395,86 @@ export default function App() {
               })}
             </div>
           )}
+
+          {/* ── SVG Gizmo Overlay — 向量把手ï¼圓、菱形、橘圈） ── */}
+          <svg
+            style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%',
+              pointerEvents: 'none', overflow: 'visible',
+            }}
+          >
+            {gizmos.map(g => {
+              const isD       = g.isDeformer
+              const rimFill   = isD ? '#44aaff' : '#ffffff'
+              const rimStroke = isD ? '#0066cc' : '#4a9eff'
+              return (
+                <g key={g.id}>
+                  {/* 角落控制點 */}
+                  {g.corners.map((c, i) => (
+                    <circle key={i}
+                      cx={c.x} cy={c.y} r={8}
+                      fill={c.highlight ? '#ffee00' : rimFill}
+                      stroke={c.highlight ? '#996600' : rimStroke}
+                      strokeWidth={2}
+                    />
+                  ))}
+
+                  {/* 轉動把手（綠圆） */}
+                  {g.rotH && (
+                    <circle
+                      cx={g.rotH.x} cy={g.rotH.y} r={6}
+                      fill="#22cc88" stroke="#ffffff" strokeWidth={1.5}
+                    />
+                  )}
+
+                  {/* 縮放把手（橙色菱形） */}
+                  {g.scaleH && (() => {
+                    const { x, y } = g.scaleH, s = 7
+                    return (
+                      <polygon
+                        points={`${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}`}
+                        fill="#ff8c00" stroke="#ffffff" strokeWidth={1.5}
+                      />
+                    )
+                  })()}
+
+                  {/* 重心（橘色圈 + 十字） */}
+                  {g.pivot && (
+                    <g>
+                      <circle
+                        cx={g.pivot.x} cy={g.pivot.y} r={7}
+                        fill="none" stroke="#ff8800" strokeWidth={2} opacity={0.9}
+                      />
+                      <line
+                        x1={g.pivot.x - 10} y1={g.pivot.y}
+                        x2={g.pivot.x + 10} y2={g.pivot.y}
+                        stroke="#ff8800" strokeWidth={1.5} opacity={0.9}
+                      />
+                      <line
+                        x1={g.pivot.x} y1={g.pivot.y - 10}
+                        x2={g.pivot.x} y2={g.pivot.y + 10}
+                        stroke="#ff8800" strokeWidth={1.5} opacity={0.9}
+                      />
+                    </g>
+                  )}
+
+                  {/* 插銷（藍/青菱形） */}
+                  {g.pins.map((pin, i) => {
+                    const { x, y } = pin.pos, s = 7
+                    return (
+                      <polygon key={i}
+                        points={`${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}`}
+                        fill={pin.bound ? '#00ffcc' : '#4a9eff'}
+                        stroke="#ffffff" strokeWidth={1}
+                        opacity={0.9}
+                      />
+                    )
+                  })}
+                </g>
+              )
+            })}
+          </svg>
         </div>
 
         {/* ── 右側：屬性 ── */}
