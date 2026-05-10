@@ -193,6 +193,7 @@ export class QuadMesh {
       for (let i = 0; i < 4; i++) {
         if (distanceSq(pt, q[i]) <= HANDLE_HIT ** 2)
           return { kind: 'corner', index: i }
+      }
     }
     if (this._pointInQuad(pt)) return { kind: 'body' }
     return null
