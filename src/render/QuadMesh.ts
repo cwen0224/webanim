@@ -193,11 +193,6 @@ export class QuadMesh {
       for (let i = 0; i < 4; i++) {
         if (distanceSq(pt, q[i]) <= HANDLE_HIT ** 2)
           return { kind: 'corner', index: i }
-      }
-      // 重心（角落未命中才到這裡）
-      const pv = uvToWorld(this._obj.pivot.uv, q)
-      if (distanceSq(pt, pv) <= HANDLE_HIT ** 2)
-        return { kind: 'pivot' }
     }
     if (this._pointInQuad(pt)) return { kind: 'body' }
     return null
