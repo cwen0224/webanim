@@ -32,17 +32,19 @@ export function distanceSq(a: Point, b: Point): number {
 }
 
 // 世界座標反算 UV（雙線性反求，Newton-Raphson 迭代，適用任意變形四邊形）
-export function worldToUV(pt: Point, quad: Quad): UV {
+// clamp=true（預設）：UV 限制在 [0,1]，用於插銷/重心放置
+// clamp=false：允許 UV 超出範圍（外插），用於變形器加算合成
+export function worldToUV(pt: Point, quad: Quad, clamp = true): UV {
   const [tl, tr, br, bl] = quad
   let u = 0.5, v = 0.5
 
-  for (let i = 0; i < 24; i++) {
+  for (let i = 0; i < 32; i++) {
     const mu = 1 - u, mv = 1 - v
     const px = mv * (mu * tl.x + u * tr.x) + v * (mu * bl.x + u * br.x)
     const py = mv * (mu * tl.y + u * tr.y) + v * (mu * bl.y + u * br.y)
     const rx = pt.x - px
     const ry = pt.y - py
-    if (rx * rx + ry * ry < 1e-6) break
+    if (rx * rx + ry * ry < 1e-8) break
 
     // Jacobian ∂P/∂u, ∂P/∂v
     const ju_x = mv * (tr.x - tl.x) + v * (br.x - bl.x)
@@ -53,8 +55,10 @@ export function worldToUV(pt: Point, quad: Quad): UV {
     const det = ju_x * jv_y - ju_y * jv_x
     if (Math.abs(det) < 1e-10) break
 
-    u = Math.max(0, Math.min(1, u + (rx * jv_y - ry * jv_x) / det))
-    v = Math.max(0, Math.min(1, v + (ju_x * ry - ju_y * rx) / det))
+    const du = (rx * jv_y - ry * jv_x) / det
+    const dv = (ju_x * ry - ju_y * rx) / det
+    u += du; v += dv
+    if (clamp) { u = Math.max(0, Math.min(1, u)); v = Math.max(0, Math.min(1, v)) }
   }
 
   return { u, v }

@@ -8,11 +8,14 @@ const PIVOT_RADIUS   = 7
 const PIN_SIZE       = 7
 const ROT_HANDLE_R   = 6
 const ROT_OFFSET     = 34   // 距頂邊多遠
+const SCALE_HANDLE_R = 7
+const SCALE_HIT      = 14
 
 export type DragTarget =
   | { kind: 'corner'; index: number }
   | { kind: 'pivot' }
   | { kind: 'rotate' }
+  | { kind: 'scale'; pivotWorld: Point; startDist: number }
   | { kind: 'body' }
 
 export class QuadMesh {
@@ -24,8 +27,9 @@ export class QuadMesh {
   private _texture: Texture | null = null
   private _loadingUrl: string | null = null
   private _meshPivotUV = { u: -1, v: -1 }   // 上次建立 mesh 時的重心 UV
-  private _lastSelected  = false
-  private _lastShowJoints = true
+  private _lastSelected    = false
+  private _lastShowJoints  = true
+  private _selectedCorners: number[] = []
   private _obj: SceneObject
 
   constructor(obj: SceneObject) {
@@ -46,10 +50,25 @@ export class QuadMesh {
 
   get quad() { return this._obj.quad }
 
-  update(obj: SceneObject, selected: boolean, showJoints: boolean) {
-    this._obj            = obj
-    this._lastSelected   = selected
-    this._lastShowJoints = showJoints
+  // 只把視覺層（body / mesh）render 到 target，handles/joints 暫時隱藏
+  renderVisual(renderer: { render: (opts: { container: unknown; target: unknown; clear: boolean }) => void }, target: unknown, clear: boolean, blendMode: string) {
+    const savedBM = (this.container as any).blendMode
+    const savedOv = this.overlay.visible
+    const savedJo = this.joints.visible
+    ;(this.container as any).blendMode = blendMode
+    this.overlay.visible = false
+    this.joints.visible  = false
+    renderer.render({ container: this.container, target, clear })
+    ;(this.container as any).blendMode = savedBM
+    this.overlay.visible = savedOv
+    this.joints.visible  = savedJo
+  }
+
+  update(obj: SceneObject, selected: boolean, showJoints: boolean, selectedCorners: number[] = []) {
+    this._obj             = obj
+    this._lastSelected    = selected
+    this._lastShowJoints  = showJoints
+    this._selectedCorners = selectedCorners
 
     const wantUrl = obj.textureUrl ?? null
     if (wantUrl !== this._loadingUrl) {
@@ -65,7 +84,7 @@ export class QuadMesh {
     } else {
       this._redrawBody()
     }
-    this._redrawOverlay(selected)
+    this._redrawOverlay(selected, selectedCorners)
     this._redrawJoints(showJoints)
   }
 
@@ -81,7 +100,7 @@ export class QuadMesh {
       this._texture = Texture.from(img)
       this._updateMesh()
       this.body.clear()
-      this._redrawOverlay(this._lastSelected)
+      this._redrawOverlay(this._lastSelected, this._selectedCorners)
       this._redrawJoints(this._lastShowJoints)
     } catch (e) {
       console.error('Texture load failed:', url, e)
@@ -147,20 +166,36 @@ export class QuadMesh {
     }
   }
 
-  hitTest(pt: Point, selected: boolean): DragTarget | null {
+  hitTest(pt: Point, selected: boolean, editPivotMode = false): DragTarget | null {
     const q = this._obj.quad
     if (selected) {
-      // 轉動把手（優先偵測，否則容易誤觸角落）
+      if (editPivotMode) {
+        // 重心編輯模式：只偵測重心（不搶角落）
+        const pv = uvToWorld(this._obj.pivot.uv, q)
+        if (distanceSq(pt, pv) <= HANDLE_HIT ** 2) return { kind: 'pivot' }
+        if (this._pointInQuad(pt))                 return { kind: 'body' }
+        return null
+      }
+
+      // 轉動把手（優先偵測）
       const rh = this._rotHandlePos(q)
       if (distanceSq(pt, rh) <= (ROT_HANDLE_R + 6) ** 2)
         return { kind: 'rotate' }
+
+      // 縮放把手
+      const sh = this._scaleHandlePos(q)
+      if (distanceSq(pt, sh) <= SCALE_HIT ** 2) {
+        const pivotWorld = uvToWorld(this._obj.pivot.uv, q)
+        const dx = sh.x - pivotWorld.x, dy = sh.y - pivotWorld.y
+        return { kind: 'scale', pivotWorld, startDist: Math.sqrt(dx * dx + dy * dy) }
+      }
 
       // 角落
       for (let i = 0; i < 4; i++) {
         if (distanceSq(pt, q[i]) <= HANDLE_HIT ** 2)
           return { kind: 'corner', index: i }
       }
-      // 重心
+      // 重心（角落未命中才到這裡）
       const pv = uvToWorld(this._obj.pivot.uv, q)
       if (distanceSq(pt, pv) <= HANDLE_HIT ** 2)
         return { kind: 'pivot' }
@@ -169,7 +204,8 @@ export class QuadMesh {
     return null
   }
 
-  rotHandlePos(): Point { return this._rotHandlePos(this._obj.quad) }
+  rotHandlePos():   Point { return this._rotHandlePos(this._obj.quad) }
+  scaleHandlePos(): Point { return this._scaleHandlePos(this._obj.quad) }
 
   uvToWorld(uv: { u: number; v: number }): Point {
     return uvToWorld(uv, this._obj.quad)
@@ -180,46 +216,86 @@ export class QuadMesh {
   private _redrawBody() {
     const q = this._obj.quad
     this.body.clear()
+
+    if (this._obj.isDeformer) {
+      // 虛線框，無填色
+      for (let i = 0; i < 4; i++) {
+        const a = q[i], b = q[(i + 1) % 4]
+        const dx = b.x - a.x, dy = b.y - a.y
+        const len = Math.sqrt(dx * dx + dy * dy)
+        if (len < 1) continue
+        const nx = dx / len, ny = dy / len
+        let t = 0, on = true
+        while (t < len) {
+          const step = on ? 9 : 5
+          const t2   = Math.min(t + step, len)
+          if (on) this.body.moveTo(a.x + nx * t, a.y + ny * t).lineTo(a.x + nx * t2, a.y + ny * t2)
+          t = t2; on = !on
+        }
+      }
+      this.body.stroke({ color: 0x44aaff, width: 1.5, alpha: 0.7 })
+      return
+    }
+
     this.body
       .poly([q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y])
       .fill({ color: this._obj.tint, alpha: this._obj.opacity })
   }
 
-  private _redrawOverlay(selected: boolean) {
+  private _redrawOverlay(selected: boolean, selectedCorners: number[] = []) {
     const q = this._obj.quad
     this.overlay.clear()
-    if (!selected) return
+    if (!selected && selectedCorners.length === 0) return
 
-    // 外框
-    this.overlay
-      .poly([q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y])
-      .stroke({ color: 0xffffff, width: 1.5, alpha: 0.8 })
+    const isD       = this._obj.isDeformer
+    const rimColor  = isD ? 0x44aaff : 0xffffff
+    const dotStroke = isD ? 0x0066cc : 0x4a9eff
 
-    // 角落控制點
-    for (const p of q) {
+    if (selected) {
+      // 外框
       this.overlay
-        .circle(p.x, p.y, HANDLE_RADIUS)
-        .fill({ color: 0xffffff })
-        .circle(p.x, p.y, HANDLE_RADIUS)
-        .stroke({ color: 0x4a9eff, width: 2 })
+        .poly([q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y])
+        .stroke({ color: rimColor, width: 1.5, alpha: 0.8 })
     }
 
-    // 轉動把手：虛線連到頂邊中點 + 圓圈
-    const rh     = this._rotHandlePos(q)
-    const topMid = { x: (q[0].x + q[1].x) / 2, y: (q[0].y + q[1].y) / 2 }
-    this.overlay
-      .moveTo(topMid.x, topMid.y)
-      .lineTo(rh.x, rh.y)
-      .stroke({ color: 0xffffff, width: 1, alpha: 0.5 })
-    this.overlay
-      .circle(rh.x, rh.y, ROT_HANDLE_R)
-      .fill({ color: 0x22cc88 })
-      .circle(rh.x, rh.y, ROT_HANDLE_R)
-      .stroke({ color: 0xffffff, width: 1.5 })
-    // 箭頭弧（用小點代替）
-    this.overlay
-      .circle(rh.x, rh.y, ROT_HANDLE_R - 2)
-      .stroke({ color: 0xffffff, width: 1, alpha: 0.4 })
+    // 角落控制點（被 lasso 選中的端點顯示黃色）
+    for (let i = 0; i < 4; i++) {
+      const p           = q[i]
+      const isHighlight = selectedCorners.includes(i)
+      if (!selected && !isHighlight) continue
+      const fillColor = isHighlight ? 0xffee00 : rimColor
+      this.overlay
+        .circle(p.x, p.y, HANDLE_RADIUS)
+        .fill({ color: fillColor })
+        .circle(p.x, p.y, HANDLE_RADIUS)
+        .stroke({ color: dotStroke, width: 2 })
+    }
+
+    if (selected) {
+      // 轉動把手
+      const rh     = this._rotHandlePos(q)
+      const topMid = { x: (q[0].x + q[1].x) / 2, y: (q[0].y + q[1].y) / 2 }
+      this.overlay
+        .moveTo(topMid.x, topMid.y).lineTo(rh.x, rh.y)
+        .stroke({ color: 0xffffff, width: 1, alpha: 0.5 })
+      this.overlay
+        .circle(rh.x, rh.y, ROT_HANDLE_R).fill({ color: 0x22cc88 })
+        .circle(rh.x, rh.y, ROT_HANDLE_R).stroke({ color: 0xffffff, width: 1.5 })
+      this.overlay
+        .circle(rh.x, rh.y, ROT_HANDLE_R - 2).stroke({ color: 0xffffff, width: 1, alpha: 0.4 })
+
+      // 縮放把手（右上角，橙色箭頭菱形）
+      const sh = this._scaleHandlePos(q)
+      this.overlay
+        .moveTo(q[1].x, q[1].y).lineTo(sh.x, sh.y)
+        .stroke({ color: 0xffffff, width: 1, alpha: 0.4 })
+      const ss = SCALE_HANDLE_R
+      this.overlay
+        .poly([sh.x, sh.y - ss, sh.x + ss, sh.y, sh.x, sh.y + ss, sh.x - ss, sh.y])
+        .fill({ color: 0xff8c00 })
+        .poly([sh.x, sh.y - ss, sh.x + ss, sh.y, sh.x, sh.y + ss, sh.x - ss, sh.y])
+        .stroke({ color: 0xffffff, width: 1.5 })
+    }
   }
 
   private _redrawJoints(show: boolean) {
@@ -264,6 +340,16 @@ export class QuadMesh {
       x: mx + (ey / len) * ROT_OFFSET,
       y: my - (ex / len) * ROT_OFFSET,
     }
+  }
+
+  // 縮放把手：右上角頂點往右上方向偏移
+  private _scaleHandlePos(q: Quad): Point {
+    const tr = q[1]
+    const dx = tr.x - q[0].x, dy = tr.y - q[0].y   // 頂邊方向
+    const len = Math.sqrt(dx * dx + dy * dy) || 1
+    const nx = dx / len, ny = dy / len
+    const ox =  ny, oy = -nx               // 頂邊法線（朝上）
+    return { x: tr.x + nx * 20 + ox * 20, y: tr.y + ny * 20 + oy * 20 }
   }
 
   private _pointInQuad(pt: Point): boolean {

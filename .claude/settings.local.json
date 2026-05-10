@@ -13,7 +13,22 @@
       "PowerShell(gh api *)",
       "PowerShell(gh workflow *)",
       "PowerShell(gh run *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(node -e \"const p = require\\('./node_modules/pixi.js/package.json'\\); console.log\\(p.version\\)\")",
+      "Bash(node -e \"const p = require\\('pixi.js'\\); console.log\\('Mesh:', typeof p.Mesh, 'MeshGeometry:', typeof p.MeshGeometry, 'Assets:', typeof p.Assets\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(npx tsc *)",
+      "Bash(node -e \"const p = require\\('./node_modules/zustand/package.json'\\); console.log\\(p.version\\)\")",
+      "Bash(npx vite *)",
+      "Bash(findstr \":5173\")",
+      "Bash(node -e \"const p = require\\('pixi.js'\\); console.log\\(Object.keys\\(p\\).filter\\(k => k.toLowerCase\\(\\).includes\\('mask'\\) || k.toLowerCase\\(\\).includes\\('filter'\\)\\)\\)\")",
+      "Bash(node -e \"const p = require\\('pixi.js'\\); console.log\\(Object.keys\\(p\\).filter\\(k => /mask|Filter/i.test\\(k\\)\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(node -e \"const { StencilMask, AlphaMask } = require\\('pixi.js'\\); const m = new StencilMask\\(\\); console.log\\('SM keys:', Object.keys\\(m\\)\\); const g = require\\('pixi.js'\\).Graphics; const gfx = new g\\(\\); const am = new AlphaMask\\(gfx\\); console.log\\('AM keys:', Object.keys\\(am\\)\\)\")",
+      "Bash(node -e \"const { AlphaMask } = require\\('pixi.js'\\); const fn = AlphaMask.toString\\(\\).slice\\(0, 300\\); console.log\\(fn\\)\")",
+      "Bash(node -e \"const p=require\\('pixi.js'\\);console.log\\(p.maskFrag\\)\")"
     ]
   }
 }
