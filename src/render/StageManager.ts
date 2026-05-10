@@ -105,7 +105,12 @@ export class StageManager {
     this._selectedVertices = selectedVertices
 
     for (const [id, qm] of this.meshes) {
-      if (!objects[id]) { this.app.stage.removeChild(qm.container); this.meshes.delete(id) }
+      if (!objects[id]) { 
+        this.app.stage.removeChild(qm.container)
+        this.app.stage.removeChild(qm.overlay)
+        this.app.stage.removeChild(qm.joints)
+        this.meshes.delete(id) 
+      }
     }
 
     const sorted = Object.values(objects).sort((a, b) => a.zIndex - b.zIndex)
@@ -113,17 +118,25 @@ export class StageManager {
       let qm = this.meshes.get(obj.id)
       if (!qm) {
         qm = new QuadMesh(obj)
-        qm.container.eventMode = 'static'
-        qm.container.on('pointerdown', (e: { global: Point; shiftKey: boolean; stopPropagation: () => void }) => {
+        const handleDown = (e: { global: Point; shiftKey: boolean; stopPropagation: () => void }) => {
           if (e.shiftKey) {
             this._lassoStart = { ...e.global }
             return
           }
           e.stopPropagation()
           this._onObjectDown(e.global, obj.id, this._mode)
-        })
+        }
+        qm.container.eventMode = 'static'
+        qm.container.on('pointerdown', handleDown)
+        qm.overlay.eventMode = 'static'
+        qm.overlay.on('pointerdown', handleDown)
+        qm.joints.eventMode = 'static'
+        qm.joints.on('pointerdown', handleDown)
+        
         this.meshes.set(obj.id, qm)
         this.app.stage.addChild(qm.container)
+        this.app.stage.addChild(qm.overlay)
+        this.app.stage.addChild(qm.joints)
       }
       const selCorners = selectedVertices.filter(v => v.objId === obj.id).map(v => v.cornerIndex)
       qm.update(obj, obj.id === selectedId, showJoints, selCorners)
@@ -132,6 +145,14 @@ export class StageManager {
     for (const obj of sorted) {
       const qm = this.meshes.get(obj.id)
       if (qm) this.app.stage.addChild(qm.container)
+    }
+    // 把所有的把手(overlay, joints) 統一加在物件上層，不受 z-index 遮擋
+    for (const obj of sorted) {
+      const qm = this.meshes.get(obj.id)
+      if (qm) {
+        this.app.stage.addChild(qm.overlay)
+        this.app.stage.addChild(qm.joints)
+      }
     }
     this.app.stage.addChild(this._lassoGfx)
     this.app.stage.addChild(this._selGfx)

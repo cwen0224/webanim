@@ -3,13 +3,13 @@ import type { Quad, Point, SceneObject } from '../core/model/types'
 import { uvToWorld, distanceSq } from '../core/transform/quad'
 
 const HANDLE_RADIUS  = 8
-const HANDLE_HIT     = 14
+const HANDLE_HIT     = 24
 const PIVOT_RADIUS   = 7
 const PIN_SIZE       = 7
 const ROT_HANDLE_R   = 6
 const ROT_OFFSET     = 34   // 距頂邊多遠
 const SCALE_HANDLE_R = 7
-const SCALE_HIT      = 14
+const SCALE_HIT      = 24
 
 export type DragTarget =
   | { kind: 'corner'; index: number }
@@ -21,8 +21,8 @@ export type DragTarget =
 export class QuadMesh {
   readonly container: Container
   private body:    Graphics
-  private overlay: Graphics
-  private joints:  Graphics
+  public overlay: Graphics
+  public joints:  Graphics
   private _mesh:   Mesh | null = null
   private _texture: Texture | null = null
   private _loadingUrl: string | null = null
@@ -39,8 +39,7 @@ export class QuadMesh {
     this.overlay   = new Graphics()
     this.joints    = new Graphics()
     this.container.addChild(this.body)
-    this.container.addChild(this.overlay)
-    this.container.addChild(this.joints)
+    // overlay 和 joints 將由 StageManager 統一加到最上層容器
     this._redrawBody()
     if (obj.textureUrl) {
       this._loadingUrl = obj.textureUrl
@@ -179,7 +178,7 @@ export class QuadMesh {
 
       // 轉動把手（優先偵測）
       const rh = this._rotHandlePos(q)
-      if (distanceSq(pt, rh) <= (ROT_HANDLE_R + 6) ** 2)
+      if (distanceSq(pt, rh) <= 24 ** 2)
         return { kind: 'rotate' }
 
       // 縮放把手
