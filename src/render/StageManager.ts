@@ -1,4 +1,5 @@
-import { Application, Graphics, AlphaMask, RenderTexture, Sprite } from 'pixi.js'
+import { Application, Graphics, AlphaMask, RenderTexture, Sprite, ColorMatrixFilter } from 'pixi.js'
+import { Logger } from '../utils/logger'
 import type { Point, Quad, SceneObject } from '../core/model/types'
 import { QuadMesh } from './QuadMesh'
 import { moveQuad, worldToUV, uvToWorld } from '../core/transform/quad'
@@ -450,11 +451,30 @@ export class StageManager {
       }
 
       try {
-        // 把遮罩物件的 PNG 視覺層（含 alpha）render 到 RT
-        // AlphaMask 依 alpha 通道裁切：PNG 不透明處顯示，透明處隱藏
+        Logger.log('Rendering mask:', entry.maskObjectId, 'for object:', obj.id);
+        
+        // 建立一個 ColorMatrixFilter，將 Alpha 通道的值複製到 RGB
+        // 公式：R' = A, G' = A, B' = A, A' = A
+        // 這樣渲染到 RenderTexture 的結果就會變成純灰階圖（全透明=黑，全不透明=白）
+        const alphaToRgbFilter = new ColorMatrixFilter()
+        alphaToRgbFilter.matrix = [
+          0, 0, 0, 1, 0,
+          0, 0, 0, 1, 0,
+          0, 0, 0, 1, 0,
+          0, 0, 0, 1, 0,
+        ]
+
+        // 暫時加上 Filter 渲染，讓 RT 獲得形狀輪廓的灰階圖
+        const savedFilters = maskQm.container.filters
+        maskQm.container.filters = savedFilters ? [...(savedFilters as any), alphaToRgbFilter] : [alphaToRgbFilter]
+        
         maskQm.renderVisual(this.app.renderer, cached.rt, true, 'normal')
+        
+        // 復原 Filters
+        maskQm.container.filters = savedFilters
       } catch (err) {
         console.error('[_syncMasks] render error:', err)
+        Logger.log('Mask rendering error:', err)
       }
     }
 

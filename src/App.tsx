@@ -3,6 +3,7 @@ import { Application } from 'pixi.js'
 import { useSceneStore } from './store/sceneStore'
 import { StageManager } from './render/StageManager'
 import { makeRectQuad } from './core/transform/quad'
+import { Logger } from './utils/logger'
 import './App.css'
 
 export default function App() {
@@ -298,6 +299,10 @@ export default function App() {
         <button className={`btn-small ${showJoints ? 'on' : ''}`} onClick={toggleJoints}
           title="H — 切換顯示關節">
           {showJoints ? '隱藏關節' : '顯示關節'}
+        </button>
+        <button className="btn-small" onClick={() => navigator.clipboard.writeText(Logger.getLogs())}
+          title="複製操作 LOG 給 AI" style={{ marginLeft: 4 }}>
+          📋 複製 LOG
         </button>
       </header>
 
