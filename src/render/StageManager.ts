@@ -18,6 +18,7 @@ interface StoreActions {
   addMask:             (objectId: string, maskObjectId: string) => void
   setMode:             (mode: EditorMode) => void
   pushHistory:         () => void
+  setCamera:           (cam: { x: number; y: number; zoom: number }) => void
 }
 
 type DragKind =
@@ -27,6 +28,7 @@ type DragKind =
   | { kind: 'scale';     pivotWorld: Point; startDist: number }
   | { kind: 'selRotate'; centroid: Point;   startAngle: number }
   | { kind: 'body' }
+  | { kind: 'pan';       startCam: { x: number; y: number }; startScreen: Point }
 
 interface DragState {
   meshId:          string
@@ -216,6 +218,12 @@ export class StageManager {
     }
     this.store.select(null)
     this.store.selectVertices([])
+    this.drag = {
+      meshId: '',
+      startPt: { ...pt },
+      startQuad: [],
+      target: { kind: 'pan', startCam: { x: this.app.stage.position.x, y: this.app.stage.position.y }, startScreen: { ...e.global } }
+    }
   }
 
   private _onObjectDown(pt: Point, id: string, mode: EditorMode) {
@@ -284,6 +292,17 @@ export class StageManager {
   }
 
   private _onMove(e: { global: { x: number; y: number } }) {
+    if (this.drag?.target.kind === 'pan') {
+      const dx = e.global.x - this.drag.target.startScreen.x
+      const dy = e.global.y - this.drag.target.startScreen.y
+      this.store.setCamera({
+        x: this.drag.target.startCam.x + dx,
+        y: this.drag.target.startCam.y + dy,
+        zoom: this.app.stage.scale.x
+      })
+      return
+    }
+
     const pt = this.app.stage.toLocal(e.global)
     this._lastPt = pt
 
@@ -385,9 +404,9 @@ export class StageManager {
   }
 
   private _onUp(e: { global: { x: number; y: number } }) {
-    // 套索結束：計算選取頂點
+    // 套索結束：計算選取頂點（座標轉換為 world space）
     if (this._lassoStart) {
-      const pt = e.global as Point
+      const pt = this.app.stage.toLocal(e.global)
       const x1 = Math.min(pt.x, this._lassoStart.x)
       const y1 = Math.min(pt.y, this._lassoStart.y)
       const x2 = Math.max(pt.x, this._lassoStart.x)

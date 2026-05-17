@@ -88,6 +88,7 @@ export default function App() {
         addMask:            (oid, mid)    => storeGet().addMask(oid, mid),
         setMode:            m             => storeGet().setMode(m),
         pushHistory:        ()            => storeGet().pushHistory(),
+        setCamera:          cam           => storeGet().setCamera(cam),
       })
       managerRef.current = mgr
     })
@@ -99,7 +100,7 @@ export default function App() {
     managerRef.current?.sync(objects, selectedId, mode, showJoints, selectedVertices, camera)
   }, [objects, selectedId, mode, showJoints, selectedVertices, camera])
 
-  // 滑鼠滾輪縮放與中鍵平移
+  // 滑鼠滾輪縮放（zoom 保留在 React 層，pan 已移至 PixiJS 背景層）
   useEffect(() => {
     const el = canvasRef.current
     if (!el) return
@@ -115,34 +116,8 @@ export default function App() {
       const wy = (my - cam.y) / cam.zoom
       storeGet().setCamera({ x: mx - wx * newZoom, y: my - wy * newZoom, zoom: newZoom })
     }
-    let isPanning = false
-    let lastPt = { x: 0, y: 0 }
-    const onDown = (e: PointerEvent) => {
-      if (e.button === 1 || (e.button === 0 && e.altKey)) {
-        isPanning = true
-        lastPt = { x: e.clientX, y: e.clientY }
-      }
-    }
-    const onMove = (e: PointerEvent) => {
-      if (!isPanning) return
-      const dx = e.clientX - lastPt.x
-      const dy = e.clientY - lastPt.y
-      lastPt = { x: e.clientX, y: e.clientY }
-      const cam = storeGet().camera
-      storeGet().setCamera({ x: cam.x + dx, y: cam.y + dy, zoom: cam.zoom })
-    }
-    const onUp = () => { isPanning = false }
-
     el.addEventListener('wheel', onWheel, { passive: false })
-    el.addEventListener('pointerdown', onDown)
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    return () => {
-      el.removeEventListener('wheel', onWheel)
-      el.removeEventListener('pointerdown', onDown)
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-    }
+    return () => { el.removeEventListener('wheel', onWheel) }
   }, [storeGet])
 
   // ── 鍵盤快捷鍵 ────────────────────────────────────────────────────
@@ -338,7 +313,7 @@ export default function App() {
       {/* ── 工具列 ── */}
       <header className="toolbar">
         <span className="logo">WebAnim</span>
-        <span className="version">Phase 3 — 參數系統 (Rev 12)</span>
+        <span className="version">Phase 3 — 參數系統 (Rev 13)</span>
         <span className={`mode-badge ${mode !== 'select' ? 'active' : selectedVertices.length > 0 ? 'active' : ''}`}>
           {modeLabels[mode]}
         </span>
