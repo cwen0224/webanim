@@ -243,20 +243,37 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
   })),
 
   addDeformer: () => {
-    const { objects, selectedId } = get()
+    const { objects, selectedId, selectedVertices } = get()
+    
+    // 收集所有被選取的物件（包含 selectedId，以及透過 lasso 選取的 selectedVertices 所屬的物件）
+    const involvedIds = new Set<string>()
+    if (selectedId && objects[selectedId] && !objects[selectedId].isDeformer) involvedIds.add(selectedId)
+    for (const v of selectedVertices) {
+      if (objects[v.objId] && !objects[v.objId].isDeformer) involvedIds.add(v.objId)
+    }
+
     const id  = `obj_${_nextId++}`
     const idx = Object.keys(objects).length
     let q = makeRectQuad(80, 80, 200, 160)
-    if (selectedId && objects[selectedId] && !objects[selectedId].isDeformer) {
-      const sq  = objects[selectedId].quad
-      const xs  = sq.map(p => p.x), ys = sq.map(p => p.y)
+
+    if (involvedIds.size > 0) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      for (const oid of involvedIds) {
+        for (const p of objects[oid].quad) {
+          if (p.x < minX) minX = p.x
+          if (p.x > maxX) maxX = p.x
+          if (p.y < minY) minY = p.y
+          if (p.y > maxY) maxY = p.y
+        }
+      }
       const pad = 20
       q = makeRectQuad(
-        Math.min(...xs) - pad, Math.min(...ys) - pad,
-        Math.max(...xs) - Math.min(...xs) + pad * 2,
-        Math.max(...ys) - Math.min(...ys) + pad * 2,
+        minX - pad, minY - pad,
+        maxX - minX + pad * 2,
+        maxY - minY + pad * 2,
       )
     }
+
     const obj: SceneObject = {
       id, name: `變形器 ${idx + 1}`,
       quad: q, baseQuad: q,
@@ -266,7 +283,24 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
       pins: [], textureUrl: null, textureName: null,
       isDeformer: true, deformerBinding: null, masks: [],
     }
-    set(s => ({ ...snap(s), objects: { ...s.objects, [id]: obj }, selectedId: id }))
+
+    set(s => {
+      let newObjects = { ...s.objects, [id]: obj }
+      // 自動綁定所有 involvedIds 到這個新的變形器
+      for (const oid of involvedIds) {
+        newObjects[oid] = {
+          ...newObjects[oid],
+          baseQuad: [...newObjects[oid].quad] as Quad,
+          deformerBinding: { deformerId: id, deformerRestQuad: [...q] as Quad },
+        }
+      }
+      return { 
+        ...snap(s), 
+        objects: applyConstraints(newObjects, s.parameters), 
+        selectedId: id,
+        selectedVertices: [] // clear lasso selection
+      }
+    })
   },
 
   bindToDeformer: (objectId, deformerId) => {
