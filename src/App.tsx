@@ -7,7 +7,8 @@ import { Logger } from './utils/logger'
 import './App.css'
 
 export default function App() {
-  const canvasRef  = useRef<HTMLDivElement>(null)
+  const canvasRef  = useRef<HTMLDivElement>(null)   // outer area (wheel events)
+  const pixiRef    = useRef<HTMLDivElement>(null)   // PixiJS canvas mount point
   const managerRef = useRef<StageManager | null>(null)
 
   const objects           = useSceneStore(s => s.objects)
@@ -67,13 +68,14 @@ export default function App() {
   }, [storeGet])
 
   useEffect(() => {
-    if (!canvasRef.current) return
-    const el = canvasRef.current
+    if (!pixiRef.current) return
+    const el = pixiRef.current
+    const outerEl = canvasRef.current
     const app = new Application()
     let destroyed = false
 
-    app.init({ resizeTo: el, background: '#2a2a2a', antialias: true }).then(() => {
-      if (destroyed || !canvasRef.current) return
+    app.init({ resizeTo: outerEl ?? el, background: '#2a2a2a', antialias: true }).then(() => {
+      if (destroyed || !pixiRef.current) return
       el.appendChild(app.canvas)
       const mgr = new StageManager(app, {
         select:             id            => storeGet().select(id),
@@ -431,6 +433,9 @@ export default function App() {
             } catch { /* 無剪貼簿權限或無圖片 */ }
           }}
         >
+          {/* PixiJS 掛載點，必須是第一個子元素，讓 SVG overlay 蓋在上面 */}
+          <div ref={pixiRef} style={{ position: 'absolute', inset: 0 }} />
+
           {/* ── 迷你參數滑桿（浮動在物件旁） ── */}
           {miniPanelPos && (mode === 'select' || mode === 'editPivot') && (
             <div
