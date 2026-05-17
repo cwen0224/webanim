@@ -25,6 +25,9 @@ interface SceneStore {
   history:      Snapshot[]
   future:       Snapshot[]
   clipboardObj: SceneObject | null
+  camera:       { x: number; y: number; zoom: number }
+
+  setCamera:    (cam: { x: number; y: number; zoom: number }) => void
 
   // 物件
   addObject:          (obj?: Partial<SceneObject>) => void
@@ -137,6 +140,9 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
   history:          [],
   future:           [],
   clipboardObj:     null,
+  camera:           { x: 0, y: 0, zoom: 1 },
+
+  setCamera: (cam) => set({ camera: cam }),
 
   // ── 物件 ──────────────────────────────────────────────────────────
   addObject: (overrides = {}) => {

@@ -39,6 +39,7 @@ export default function App() {
   const redo             = useSceneStore(s => s.redo)
   const addMask          = useSceneStore(s => s.addMask)
   const removeMask       = useSceneStore(s => s.removeMask)
+  const camera           = useSceneStore(s => s.camera)
   const storeGet         = useSceneStore.getState
 
   // 新增參數 dialog 狀態
@@ -95,8 +96,54 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    managerRef.current?.sync(objects, selectedId, mode, showJoints, selectedVertices)
-  }, [objects, selectedId, mode, showJoints, selectedVertices])
+    managerRef.current?.sync(objects, selectedId, mode, showJoints, selectedVertices, camera)
+  }, [objects, selectedId, mode, showJoints, selectedVertices, camera])
+
+  // 滑鼠滾輪縮放與中鍵平移
+  useEffect(() => {
+    const el = canvasRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1
+      const cam = storeGet().camera
+      const newZoom = Math.max(0.05, Math.min(cam.zoom * zoomDelta, 50))
+      const rect = el.getBoundingClientRect()
+      const mx = e.clientX - rect.left
+      const my = e.clientY - rect.top
+      const wx = (mx - cam.x) / cam.zoom
+      const wy = (my - cam.y) / cam.zoom
+      storeGet().setCamera({ x: mx - wx * newZoom, y: my - wy * newZoom, zoom: newZoom })
+    }
+    let isPanning = false
+    let lastPt = { x: 0, y: 0 }
+    const onDown = (e: PointerEvent) => {
+      if (e.button === 1 || (e.button === 0 && e.altKey)) {
+        isPanning = true
+        lastPt = { x: e.clientX, y: e.clientY }
+      }
+    }
+    const onMove = (e: PointerEvent) => {
+      if (!isPanning) return
+      const dx = e.clientX - lastPt.x
+      const dy = e.clientY - lastPt.y
+      lastPt = { x: e.clientX, y: e.clientY }
+      const cam = storeGet().camera
+      storeGet().setCamera({ x: cam.x + dx, y: cam.y + dy, zoom: cam.zoom })
+    }
+    const onUp = () => { isPanning = false }
+
+    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+  }, [storeGet])
 
   // ── 鍵盤快捷鍵 ────────────────────────────────────────────────────
   useEffect(() => {
@@ -291,7 +338,7 @@ export default function App() {
       {/* ── 工具列 ── */}
       <header className="toolbar">
         <span className="logo">WebAnim</span>
-        <span className="version">Phase 3 — 參數系統 (Rev 11)</span>
+        <span className="version">Phase 3 — 參數系統 (Rev 12)</span>
         <span className={`mode-badge ${mode !== 'select' ? 'active' : selectedVertices.length > 0 ? 'active' : ''}`}>
           {modeLabels[mode]}
         </span>
@@ -394,6 +441,10 @@ export default function App() {
         </aside>
 
         <div className="canvas-area" ref={canvasRef}
+          style={{
+            backgroundPosition: `${camera.x}px ${camera.y}px`,
+            backgroundSize: `${20 * camera.zoom}px ${20 * camera.zoom}px`
+          }}
           onContextMenu={async e => {
             e.preventDefault()
             try {
@@ -446,107 +497,113 @@ export default function App() {
                           {param.keyframes.map(kf => {
                             const pct = (kf.t - param.min) / (param.max - param.min)
                             return (
-                              <span key={kf.t} className="kf-marker"
-                                style={{ left: `calc(${pct.toFixed(4)} * (100% - 12px) + 6px)` }}
-                                title={`關鍵幀 t=${kf.t}，點擊刪除`}
-                                onClick={e => { e.stopPropagation(); deleteKeyframe(param.id, kf.t) }}
-                              />
-                            )
-                          })}
-                        </div>
-                      </div>
-                      <button className="kf-nav-btn-mini"
-                        title="跳到下一個關鍵幀"
-                        onPointerDown={e => e.stopPropagation()}
-                        onClick={e => { e.stopPropagation(); jumpKeyframe(param.id, 'next') }}
-                        disabled={!param.keyframes.some(kf => kf.t > param.value + 0.001)}
-                      >▶</button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* ── SVG Gizmo Overlay — 向量把手ï¼圓、菱形、橘圈） ── */}
-          <svg
+                              <span key={kf.t}          <svg
             style={{
               position: 'absolute', inset: 0,
               width: '100%', height: '100%',
               pointerEvents: 'none', overflow: 'visible',
             }}
           >
-            {gizmos.map(g => {
-              const isD       = g.isDeformer
-              const rimFill   = isD ? '#44aaff' : '#ffffff'
-              const rimStroke = isD ? '#0066cc' : '#4a9eff'
-              return (
-                <g key={g.id}>
-                  {/* 角落控制點 */}
-                  {g.corners.map((c, i) => (
-                    <circle key={i}
-                      cx={c.x} cy={c.y} r={8}
-                      fill={c.highlight ? '#ffee00' : rimFill}
-                      stroke={c.highlight ? '#996600' : rimStroke}
-                      strokeWidth={2}
-                    />
-                  ))}
-
-                  {/* 轉動把手（綠圆） */}
-                  {g.rotH && (
-                    <circle
-                      cx={g.rotH.x} cy={g.rotH.y} r={6}
-                      fill="#22cc88" stroke="#ffffff" strokeWidth={1.5}
-                    />
-                  )}
-
-                  {/* 縮放把手（橙色菱形） */}
-                  {g.scaleH && (() => {
-                    const { x, y } = g.scaleH, s = 7
-                    return (
-                      <polygon
-                        points={`${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}`}
-                        fill="#ff8c00" stroke="#ffffff" strokeWidth={1.5}
+            <g transform={`translate(${camera.x}, ${camera.y}) scale(${camera.zoom})`}>
+              {gizmos.map(g => {
+                const isD       = g.isDeformer
+                const rimFill   = isD ? '#44aaff' : '#ffffff'
+                const rimStroke = isD ? '#0066cc' : '#4a9eff'
+                const z = camera.zoom
+                return (
+                  <g key={g.id}>
+                    {/* 角落控制點 */}
+                    {g.corners.map((c, i) => (
+                      <circle key={i}
+                        cx={c.x} cy={c.y} r={8 / z}
+                        fill={c.highlight ? '#ffee00' : rimFill}
+                        stroke={c.highlight ? '#996600' : rimStroke}
+                        strokeWidth={2 / z}
                       />
-                    )
-                  })()}
+                    ))}
 
-                  {/* 重心（橘色圈 + 十字） */}
-                  {g.pivot && (
-                    <g>
+                    {/* 轉動把手（綠圆） */}
+                    {g.rotH && (
                       <circle
-                        cx={g.pivot.x} cy={g.pivot.y} r={7}
-                        fill="none" stroke="#ff8800" strokeWidth={2} opacity={0.9}
+                        cx={g.rotH.x} cy={g.rotH.y} r={6 / z}
+                        fill="#22cc88" stroke="#ffffff" strokeWidth={1.5 / z}
                       />
-                      <line
-                        x1={g.pivot.x - 10} y1={g.pivot.y}
-                        x2={g.pivot.x + 10} y2={g.pivot.y}
-                        stroke="#ff8800" strokeWidth={1.5} opacity={0.9}
-                      />
-                      <line
-                        x1={g.pivot.x} y1={g.pivot.y - 10}
-                        x2={g.pivot.x} y2={g.pivot.y + 10}
-                        stroke="#ff8800" strokeWidth={1.5} opacity={0.9}
-                      />
-                    </g>
-                  )}
+                    )}
 
-                  {/* 插銷（藍/青菱形） */}
-                  {g.pins.map((pin, i) => {
-                    const { x, y } = pin.pos, s = 7
-                    return (
-                      <polygon key={i}
-                        points={`${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}`}
-                        fill={pin.bound ? '#00ffcc' : '#4a9eff'}
-                        stroke="#ffffff" strokeWidth={1}
-                        opacity={0.9}
-                      />
-                    )
-                  })}
-                </g>
-              )
-            })}
+                    {/* 縮放把手（橙色菱形） */}
+                    {g.scaleH && (() => {
+                      const { x, y } = g.scaleH, s = 7 / z
+                      return (
+                        <polygon
+                          points={`${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}`}
+                          fill="#ff8c00" stroke="#ffffff" strokeWidth={1.5 / z}
+                        />
+                      )
+                    })()}
+
+                    {/* 重心（橘色圈 + 十字） */}
+                    {g.pivot && (
+                      <g>
+                        <circle
+                          cx={g.pivot.x} cy={g.pivot.y} r={7 / z}
+                          fill="none" stroke="#ff8800" strokeWidth={2 / z} opacity={0.9}
+                        />
+                        <line
+                          x1={g.pivot.x - 10/z} y1={g.pivot.y}
+                          x2={g.pivot.x + 10/z} y2={g.pivot.y}
+                          stroke="#ff8800" strokeWidth={1.5 / z} opacity={0.9}
+                        />
+                        <line
+                          x1={g.pivot.x} y1={g.pivot.y - 10/z}
+                          x2={g.pivot.x} y2={g.pivot.y + 10/z}
+                          stroke="#ff8800" strokeWidth={1.5 / z} opacity={0.9}
+                        />
+                      </g>
+                    )}
+
+                    {/* 插銷（藍/青菱形） */}
+                    {g.pins.map((pin, i) => {
+                      const { x, y } = pin.pos, s = 7 / z
+                      return (
+                        <polygon key={i}
+                          points={`${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}`}
+                          fill={pin.bound ? '#00ffcc' : '#4a9eff'}
+                          stroke="#ffffff" strokeWidth={1 / z}
+                          opacity={0.9}
+                        />
+                      )
+                    })}
+                  </g>
+                )
+              })}
+            </g>
           </svg>
+
+          {/* 導覽窗 (MiniMap) */}
+          <div className="minimap-container">
+            <svg className="minimap-svg" viewBox="0 0 160 120" preserveAspectRatio="xMidYMid meet">
+              <g transform="scale(0.04) translate(2000, 1500)">
+                {Object.values(objects).map(obj => {
+                  const pts = obj.quad
+                  return (
+                    <polygon key={obj.id}
+                      points={pts.map(p => `${p.x},${p.y}`).join(' ')}
+                      fill={`#${obj.tint.toString(16).padStart(6, '0')}`}
+                      opacity={0.5}
+                    />
+                  )
+                })}
+                {/* Viewport indicator */}
+                <rect
+                  className="minimap-viewport"
+                  x={-camera.x / camera.zoom}
+                  y={-camera.y / camera.zoom}
+                  width={(canvasRef.current?.clientWidth || 800) / camera.zoom}
+                  height={(canvasRef.current?.clientHeight || 600) / camera.zoom}
+                />
+              </g>
+            </svg>
+          </div>
         </div>
 
         {/* ── 右側：屬性 ── */}

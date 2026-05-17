@@ -65,7 +65,7 @@ export class StageManager {
     this.store = store
 
     this.bg = new Graphics()
-    this.bg.rect(0, 0, 4096, 4096).fill({ color: 0x2a2a2a })
+    this.bg.rect(-100000, -100000, 200000, 200000).fill({ color: 0x000000, alpha: 0 })
     this.bg.eventMode = 'static'
     this.bg.on('pointerdown', (e) => this._onBgDown(e as { global: Point; shiftKey: boolean }))
     app.stage.addChild(this.bg)
@@ -100,9 +100,13 @@ export class StageManager {
     mode: EditorMode,
     showJoints: boolean,
     selectedVertices: VertexRef[] = [],
+    camera: { x: number; y: number; zoom: number }
   ) {
     this._mode             = mode
     this._selectedVertices = selectedVertices
+
+    this.app.stage.scale.set(camera.zoom)
+    this.app.stage.position.set(camera.x, camera.y)
 
     for (const [id, qm] of this.meshes) {
       if (!objects[id]) { 
@@ -119,12 +123,13 @@ export class StageManager {
       if (!qm) {
         qm = new QuadMesh(obj)
         const handleDown = (e: { global: Point; shiftKey: boolean; stopPropagation: () => void }) => {
+          const pt = this.app.stage.toLocal(e.global)
           if (e.shiftKey) {
-            this._lassoStart = { ...e.global }
+            this._lassoStart = { ...pt }
             return
           }
           e.stopPropagation()
-          this._onObjectDown(e.global, obj.id, this._mode)
+          this._onObjectDown(pt, obj.id, this._mode)
         }
         qm.container.eventMode = 'static'
         qm.container.on('pointerdown', handleDown)
@@ -201,7 +206,7 @@ export class StageManager {
   }
 
   private _onBgDown(e: { global: Point; shiftKey: boolean }) {
-    const pt = e.global
+    const pt = this.app.stage.toLocal(e.global)
     if (this._pendingBind)         { this._pendingBind = null;         this.store.setMode('select'); return }
     if (this._pendingDeformerBind) { this._pendingDeformerBind = null; this.store.setMode('select'); return }
     if (this._pendingMaskPick)     { this._pendingMaskPick = null;     this.store.setMode('select'); return }
@@ -279,7 +284,7 @@ export class StageManager {
   }
 
   private _onMove(e: { global: { x: number; y: number } }) {
-    const pt = e.global as Point
+    const pt = this.app.stage.toLocal(e.global)
     this._lastPt = pt
 
     // 套索矩形繪製
@@ -563,9 +568,9 @@ export class StageManager {
     const rh       = (this._selGfx as any)._rotHandle as Point | undefined
     const centroid = (this._selGfx as any)._centroid  as Point | undefined
     if (!rh || !centroid) return
-    const pt = e.global
+    const pt = this.app.stage.toLocal(e.global)
     const dx = pt.x - rh.x, dy = pt.y - rh.y
-    if (dx * dx + dy * dy > 14 * 14) return  // miss
+    if (dx * dx + dy * dy > (14 / this.app.stage.scale.x) ** 2) return  // miss
 
     this.store.pushHistory()
 
