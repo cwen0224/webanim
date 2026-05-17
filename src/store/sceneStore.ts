@@ -475,29 +475,64 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
 
   selectParameter: (paramId) => set({ selectedParamId: paramId }),
 
-  bindObjectToParam: (paramId, objectId) => set(s => ({
-    ...snap(s),
-    parameters: {
-      ...s.parameters,
-      [paramId]: {
-        ...s.parameters[paramId],
-        boundObjectIds: s.parameters[paramId].boundObjectIds.includes(objectId)
-          ? s.parameters[paramId].boundObjectIds
-          : [...s.parameters[paramId].boundObjectIds, objectId],
-      },
-    },
-  })),
+  bindObjectToParam: (paramId, objectId) => set(s => {
+    const param = s.parameters[paramId]
+    if (!param) return snap(s)
+    if (param.boundObjectIds.includes(objectId)) return snap(s)
 
-  unbindObjectFromParam: (paramId, objectId) => set(s => ({
-    ...snap(s),
-    parameters: {
-      ...s.parameters,
-      [paramId]: {
-        ...s.parameters[paramId],
-        boundObjectIds: s.parameters[paramId].boundObjectIds.filter(i => i !== objectId),
+    const obj = s.objects[objectId]
+    if (!obj) return snap(s)
+
+    // 自動在 min 和 max 建立/更新關鍵幀
+    let newKfs = [...param.keyframes]
+    const ensureKf = (t: number) => {
+      const idx = newKfs.findIndex(kf => Math.abs(kf.t - t) < 0.001)
+      if (idx >= 0) {
+        newKfs[idx] = { ...newKfs[idx], quads: { ...newKfs[idx].quads, [objectId]: obj.baseQuad } }
+      } else {
+        newKfs.push({ t, quads: { [objectId]: obj.baseQuad } })
+      }
+    }
+    ensureKf(param.min)
+    ensureKf(param.max)
+    newKfs.sort((a, b) => a.t - b.t)
+
+    return {
+      ...snap(s),
+      parameters: {
+        ...s.parameters,
+        [paramId]: {
+          ...param,
+          boundObjectIds: [...param.boundObjectIds, objectId],
+          keyframes: newKfs
+        },
       },
-    },
-  })),
+    }
+  }),
+
+  unbindObjectFromParam: (paramId, objectId) => set(s => {
+    const param = s.parameters[paramId]
+    if (!param) return snap(s)
+
+    // 移除該物件在所有關鍵幀中的資料
+    const newKfs = param.keyframes.map(kf => {
+      const q = { ...kf.quads }
+      delete q[objectId]
+      return { ...kf, quads: q }
+    })
+
+    return {
+      ...snap(s),
+      parameters: {
+        ...s.parameters,
+        [paramId]: {
+          ...param,
+          boundObjectIds: param.boundObjectIds.filter(i => i !== objectId),
+          keyframes: newKfs
+        },
+      },
+    }
+  }),
 
   recordKeyframe: (paramId) => {
     const { objects, parameters } = get()
@@ -510,7 +545,7 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
     }
     const existing = param.keyframes.findIndex(kf => Math.abs(kf.t - t) < 0.001)
     const newKfs: Keyframe[] = existing >= 0
-      ? param.keyframes.map((kf, i) => i === existing ? { t, quads } : kf)
+      ? param.keyframes.map((kf, i) => i === existing ? { t, quads: { ...kf.quads, ...quads } } : kf)
       : [...param.keyframes, { t, quads }].sort((a, b) => a.t - b.t)
     set(s => ({ ...snap(s), parameters: { ...s.parameters, [paramId]: { ...param, keyframes: newKfs } } }))
   },

@@ -262,9 +262,13 @@ export default function App() {
   }
 
   function jumpKeyframe(paramId: string, dir: 'prev' | 'next') {
-    const param = storeGet().parameters[paramId]
+    const s = storeGet()
+    const param = s.parameters[paramId]
     if (!param) return
-    const ts = param.keyframes.map(kf => kf.t).sort((a, b) => a - b)
+    const ts = param.keyframes
+      .filter(kf => !s.selectedId || kf.quads[s.selectedId] !== undefined)
+      .map(kf => kf.t)
+      .sort((a, b) => a - b)
     if (dir === 'prev') {
       const hit = [...ts].reverse().find(t => t < param.value - 0.001)
       if (hit !== undefined) setParameterValue(paramId, hit)
@@ -292,7 +296,7 @@ export default function App() {
       {/* ── 工具列 ── */}
       <header className="toolbar">
         <span className="logo">WebAnim</span>
-        <span className="version">Phase 3 — 參數系統 (Rev 7)</span>
+        <span className="version">Phase 3 — 參數系統 (Rev 8)</span>
         <span className={`mode-badge ${mode !== 'select' ? 'active' : selectedVertices.length > 0 ? 'active' : ''}`}>
           {modeLabels[mode]}
         </span>
@@ -663,7 +667,9 @@ export default function App() {
         <div className="param-list">
           {Object.values(parameters).map(param => {
             const isActive = param.id === selectedParamId
-            const hasKf    = (t: number) => param.keyframes.some(kf => Math.abs(kf.t - t) < 0.001)
+            // 只考慮有目前選取物件資料的關鍵幀（或如果沒選東西，就考慮全部）
+            const relevantKfs = param.keyframes.filter(kf => !selectedId || kf.quads[selectedId] !== undefined)
+            const hasKf    = (t: number) => relevantKfs.some(kf => Math.abs(kf.t - t) < 0.001)
             const atKf     = hasKf(param.value)
             return (
               <div key={param.id}
@@ -675,7 +681,7 @@ export default function App() {
                   <button className="kf-nav-btn"
                     title="跳到前一個關鍵幀"
                     onClick={e => { e.stopPropagation(); jumpKeyframe(param.id, 'prev') }}
-                    disabled={!param.keyframes.some(kf => kf.t < param.value - 0.001)}
+                    disabled={!relevantKfs.some(kf => kf.t < param.value - 0.001)}
                   >◀</button>
                   <div className="slider-wrap">
                     <input
@@ -687,7 +693,9 @@ export default function App() {
                       onClick={e => e.stopPropagation()}
                     />
                     <div className="param-kf-markers">
-                      {param.keyframes.map(kf => {
+                      {param.keyframes
+                        .filter(kf => !selectedId || kf.quads[selectedId] !== undefined)
+                        .map(kf => {
                         const pct = (kf.t - param.min) / (param.max - param.min)
                         return (
                           <span key={kf.t}
@@ -703,7 +711,7 @@ export default function App() {
                   <button className="kf-nav-btn"
                     title="跳到下一個關鍵幀"
                     onClick={e => { e.stopPropagation(); jumpKeyframe(param.id, 'next') }}
-                    disabled={!param.keyframes.some(kf => kf.t > param.value + 0.001)}
+                    disabled={!relevantKfs.some(kf => kf.t > param.value + 0.001)}
                   >▶</button>
                 </div>
                 <button
