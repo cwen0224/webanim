@@ -497,7 +497,30 @@ export default function App() {
                           {param.keyframes.map(kf => {
                             const pct = (kf.t - param.min) / (param.max - param.min)
                             return (
-                              <span key={kf.t}          <svg
+                              <span key={kf.t} className="kf-marker"
+                                style={{ left: `calc(${pct.toFixed(4)} * (100% - 12px) + 6px)` }}
+                                title={`關鍵幀 t=${kf.t}，點擊刪除`}
+                                onClick={e => { e.stopPropagation(); deleteKeyframe(param.id, kf.t) }}
+                              />
+                            )
+                          })}
+                        </div>
+                      </div>
+                      <button className="kf-nav-btn-mini"
+                        title="跳到下一個關鍵幀"
+                        onPointerDown={e => e.stopPropagation()}
+                        onClick={e => { e.stopPropagation(); jumpKeyframe(param.id, 'next') }}
+                        disabled={!param.keyframes.some(kf => kf.t > param.value + 0.001)}
+                      >▶</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* ── SVG Gizmo Overlay — 向量把手（圓、菱形、橘圈） ── */}
+          <svg
             style={{
               position: 'absolute', inset: 0,
               width: '100%', height: '100%',
