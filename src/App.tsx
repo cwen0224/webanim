@@ -74,7 +74,7 @@ export default function App() {
     const app = new Application()
     let destroyed = false
 
-    app.init({ resizeTo: outerEl ?? el, background: '#2a2a2a', antialias: true }).then(() => {
+    app.init({ resizeTo: outerEl ?? el, backgroundAlpha: 0, antialias: true }).then(() => {
       if (destroyed || !pixiRef.current) return
       el.appendChild(app.canvas)
       const mgr = new StageManager(app, {
