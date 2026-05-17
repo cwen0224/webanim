@@ -229,6 +229,10 @@ export class QuadMesh {
         }
       }
       this.body.stroke({ color: 0x44aaff, width: 1.5, alpha: 0.7 })
+      // 加入極為透明的填色，讓整塊區域都能接受滑鼠點擊事件
+      this.body
+        .poly([q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y])
+        .fill({ color: 0x44aaff, alpha: 0.001 })
       return
     }
 
