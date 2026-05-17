@@ -495,113 +495,146 @@ export default function App() {
           )}
 
           {/* ── SVG Gizmo Overlay — 向量把手（圓、菱形、橘圈） ── */}
-          <svg
-            style={{
-              position: 'absolute', inset: 0,
-              width: '100%', height: '100%',
-              pointerEvents: 'none', overflow: 'visible',
-            }}
+          <svg overflow="visible"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
           >
-            <g transform={`translate(${camera.x}, ${camera.y}) scale(${camera.zoom})`}>
-              {gizmos.map(g => {
-                const isD       = g.isDeformer
-                const rimFill   = isD ? '#44aaff' : '#ffffff'
-                const rimStroke = isD ? '#0066cc' : '#4a9eff'
-                const z = camera.zoom
-                return (
-                  <g key={g.id}>
-                    {/* 角落控制點 */}
-                    {g.corners.map((c, i) => (
-                      <circle key={i}
-                        cx={c.x} cy={c.y} r={8 / z}
-                        fill={c.highlight ? '#ffee00' : rimFill}
-                        stroke={c.highlight ? '#996600' : rimStroke}
-                        strokeWidth={2 / z}
-                      />
-                    ))}
-
-                    {/* 轉動把手（綠圆） */}
-                    {g.rotH && (
-                      <circle
-                        cx={g.rotH.x} cy={g.rotH.y} r={6 / z}
-                        fill="#22cc88" stroke="#ffffff" strokeWidth={1.5 / z}
-                      />
-                    )}
-
-                    {/* 縮放把手（橙色菱形） */}
-                    {g.scaleH && (() => {
-                      const { x, y } = g.scaleH, s = 7 / z
-                      return (
-                        <polygon
-                          points={`${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}`}
-                          fill="#ff8c00" stroke="#ffffff" strokeWidth={1.5 / z}
-                        />
-                      )
-                    })()}
-
-                    {/* 重心（橘色圈 + 十字） */}
-                    {g.pivot && (
-                      <g>
-                        <circle
-                          cx={g.pivot.x} cy={g.pivot.y} r={7 / z}
-                          fill="none" stroke="#ff8800" strokeWidth={2 / z} opacity={0.9}
-                        />
-                        <line
-                          x1={g.pivot.x - 10/z} y1={g.pivot.y}
-                          x2={g.pivot.x + 10/z} y2={g.pivot.y}
-                          stroke="#ff8800" strokeWidth={1.5 / z} opacity={0.9}
-                        />
-                        <line
-                          x1={g.pivot.x} y1={g.pivot.y - 10/z}
-                          x2={g.pivot.x} y2={g.pivot.y + 10/z}
-                          stroke="#ff8800" strokeWidth={1.5 / z} opacity={0.9}
-                        />
-                      </g>
-                    )}
-
-                    {/* 插銷（藍/青菱形） */}
-                    {g.pins.map((pin, i) => {
-                      const { x, y } = pin.pos, s = 7 / z
-                      return (
-                        <polygon key={i}
-                          points={`${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}`}
-                          fill={pin.bound ? '#00ffcc' : '#4a9eff'}
-                          stroke="#ffffff" strokeWidth={1 / z}
-                          opacity={0.9}
-                        />
-                      )
-                    })}
-                  </g>
-                )
-              })}
-            </g>
+            {gizmos.map(g => {
+              const isD       = g.isDeformer
+              const rimFill   = isD ? '#44aaff' : '#ffffff'
+              const rimStroke = isD ? '#0066cc' : '#4a9eff'
+              const ws = (wx: number) => wx * camera.zoom + camera.x
+              const hs = (wy: number) => wy * camera.zoom + camera.y
+              return (
+                <g key={g.id}>
+                  {g.corners.map((c, i) => (
+                    <circle key={i}
+                      cx={ws(c.x)} cy={hs(c.y)} r={8}
+                      fill={c.highlight ? '#ffee00' : rimFill}
+                      stroke={c.highlight ? '#996600' : rimStroke}
+                      strokeWidth={2}
+                    />
+                  ))}
+                  {g.rotH && (
+                    <circle cx={ws(g.rotH.x)} cy={hs(g.rotH.y)} r={6}
+                      fill="#22cc88" stroke="#ffffff" strokeWidth={1.5}
+                    />
+                  )}
+                  {g.scaleH && (() => {
+                    const x = ws(g.scaleH.x), y = hs(g.scaleH.y), s = 7
+                    return <polygon points={`${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}`}
+                      fill="#ff8c00" stroke="#ffffff" strokeWidth={1.5} />
+                  })()}
+                  {g.pivot && (
+                    <g>
+                      <circle cx={ws(g.pivot.x)} cy={hs(g.pivot.y)} r={7}
+                        fill="none" stroke="#ff8800" strokeWidth={2} opacity={0.9} />
+                      <line x1={ws(g.pivot.x)-10} y1={hs(g.pivot.y)}
+                        x2={ws(g.pivot.x)+10} y2={hs(g.pivot.y)}
+                        stroke="#ff8800" strokeWidth={1.5} opacity={0.9} />
+                      <line x1={ws(g.pivot.x)} y1={hs(g.pivot.y)-10}
+                        x2={ws(g.pivot.x)} y2={hs(g.pivot.y)+10}
+                        stroke="#ff8800" strokeWidth={1.5} opacity={0.9} />
+                    </g>
+                  )}
+                  {g.pins.map((pin, i) => {
+                    const x = ws(pin.pos.x), y = hs(pin.pos.y), s = 7
+                    return <polygon key={i}
+                      points={`${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}`}
+                      fill={pin.bound ? '#00ffcc' : '#4a9eff'}
+                      stroke="#ffffff" strokeWidth={1} opacity={0.9} />
+                  })}
+                </g>
+              )
+            })}
           </svg>
 
-          {/* 導覽窗 (MiniMap) */}
-          <div className="minimap-container">
-            <svg className="minimap-svg" viewBox="0 0 160 120" preserveAspectRatio="xMidYMid meet">
-              <g transform="scale(0.04) translate(2000, 1500)">
-                {Object.values(objects).map(obj => {
-                  const pts = obj.quad
-                  return (
-                    <polygon key={obj.id}
-                      points={pts.map(p => `${p.x},${p.y}`).join(' ')}
-                      fill={`#${obj.tint.toString(16).padStart(6, '0')}`}
-                      opacity={0.5}
-                    />
-                  )
-                })}
-                {/* Viewport indicator */}
-                <rect
-                  className="minimap-viewport"
-                  x={-camera.x / camera.zoom}
-                  y={-camera.y / camera.zoom}
-                  width={(canvasRef.current?.clientWidth || 800) / camera.zoom}
-                  height={(canvasRef.current?.clientHeight || 600) / camera.zoom}
-                />
-              </g>
-            </svg>
-          </div>
+          {/* 導覽窗 (Navigator) */}
+          {(() => {
+            const MM_W = 160, MM_H = 120
+            const PAD  = 40
+            const allPts = Object.values(objects).flatMap(o => o.quad)
+            const xs = allPts.map(p => p.x), ys = allPts.map(p => p.y)
+            const cvW = canvasRef.current?.clientWidth  || 800
+            const cvH = canvasRef.current?.clientHeight || 600
+            // scene bounds = union of objects + current viewport
+            const vpLeft = -camera.x / camera.zoom, vpTop = -camera.y / camera.zoom
+            const vpRight = vpLeft + cvW / camera.zoom, vpBot = vpTop + cvH / camera.zoom
+            const minX = Math.min(...(xs.length ? xs : [vpLeft]), vpLeft) - PAD
+            const maxX = Math.max(...(xs.length ? xs : [vpRight]), vpRight) + PAD
+            const minY = Math.min(...(ys.length ? ys : [vpTop]), vpTop) - PAD
+            const maxY = Math.max(...(ys.length ? ys : [vpBot]), vpBot) + PAD
+            const sceneW = maxX - minX, sceneH = maxY - minY
+            const scale  = Math.min(MM_W / sceneW, MM_H / sceneH)
+            const offX   = (MM_W - sceneW * scale) / 2 - minX * scale
+            const offY   = (MM_H - sceneH * scale) / 2 - minY * scale
+            const toMM   = (wx: number, wy: number) => ({ x: wx * scale + offX, y: wy * scale + offY })
+
+            // viewport rect in minimap coords
+            const vp = {
+              x: toMM(vpLeft, 0).x, y: toMM(0, vpTop).y,
+              w: (cvW / camera.zoom) * scale, h: (cvH / camera.zoom) * scale,
+            }
+
+            const onMinimapPointerDown = (e: React.PointerEvent<SVGElement>) => {
+              e.currentTarget.setPointerCapture(e.pointerId)
+              const rect = e.currentTarget.getBoundingClientRect()
+              const mx = e.clientX - rect.left, my = e.clientY - rect.top
+              // click → jump: center viewport on clicked world position
+              const wx = (mx - offX) / scale, wy = (my - offY) / scale
+              storeGet().setCamera({
+                x: cvW / 2 - wx * camera.zoom,
+                y: cvH / 2 - wy * camera.zoom,
+                zoom: camera.zoom,
+              })
+            }
+            const onMinimapPointerMove = (e: React.PointerEvent<SVGElement>) => {
+              if (e.buttons !== 1) return
+              const rect = e.currentTarget.getBoundingClientRect()
+              const mx = e.clientX - rect.left, my = e.clientY - rect.top
+              const wx = (mx - offX) / scale, wy = (my - offY) / scale
+              storeGet().setCamera({
+                x: cvW / 2 - wx * camera.zoom,
+                y: cvH / 2 - wy * camera.zoom,
+                zoom: camera.zoom,
+              })
+            }
+
+            return (
+              <div className="minimap-container">
+                <div className="minimap-label">Navigator</div>
+                <svg
+                  className="minimap-svg"
+                  width={MM_W} height={MM_H}
+                  style={{ cursor: 'crosshair' }}
+                  onPointerDown={onMinimapPointerDown}
+                  onPointerMove={onMinimapPointerMove}
+                >
+                  {/* scene objects */}
+                  {Object.values(objects).map(obj => {
+                    const pts = obj.quad.map(p => toMM(p.x, p.y))
+                    return (
+                      <polygon key={obj.id}
+                        points={pts.map(p => `${p.x},${p.y}`).join(' ')}
+                        fill={`#${obj.tint.toString(16).padStart(6, '0')}`}
+                        opacity={0.55}
+                      />
+                    )
+                  })}
+                  {/* viewport rect */}
+                  <rect
+                    x={vp.x} y={vp.y} width={vp.w} height={vp.h}
+                    fill="rgba(255,255,255,0.08)"
+                    stroke="rgba(255,255,255,0.7)" strokeWidth={1}
+                    style={{ cursor: 'grab', pointerEvents: 'none' }}
+                  />
+                  {/* crosshair center dot */}
+                  <circle cx={vp.x + vp.w/2} cy={vp.y + vp.h/2} r={2}
+                    fill="rgba(255,255,255,0.5)" style={{ pointerEvents: 'none' }}
+                  />
+                </svg>
+              </div>
+            )
+          })()}
         </div>
 
         {/* ── 右側：屬性 ── */}
