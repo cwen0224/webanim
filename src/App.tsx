@@ -284,19 +284,14 @@ export default function App() {
     managerRef.current?.setPendingMaskPick(selectedId)
   }
 
-  function handleAddParam() {
-    const name = newParamName.trim() || `參數 ${Object.keys(parameters).length + 1}`
-    addParameter(name, 0, 100)
-    setNewParamName('')
-    setShowNewParam(false)
-  }
+
 
   return (
     <div className="app-layout">
       {/* ── 工具列 ── */}
       <header className="toolbar">
         <span className="logo">WebAnim</span>
-        <span className="version">Phase 3 — 參數系統 (Rev 10)</span>
+        <span className="version">Phase 3 — 參數系統 (Rev 11)</span>
         <span className={`mode-badge ${mode !== 'select' ? 'active' : selectedVertices.length > 0 ? 'active' : ''}`}>
           {modeLabels[mode]}
         </span>
@@ -317,15 +312,84 @@ export default function App() {
           <button className="btn" onClick={() => addObject()}>+ 新增方塊</button>
           <button className="btn" onClick={() => addDeformer()}>+ 新增變形器</button>
           {selectedId && <button className="btn btn-danger" onClick={deleteSelected}>刪除選取</button>}
-          <div className="obj-list">
+          <div className="obj-list" style={{ marginBottom: 16 }}>
             {Object.values(objects).map(obj => (
               <div key={obj.id}
                 className={`obj-item ${obj.id === selectedId ? 'active' : ''}`}
-                onClick={() => storeGet().select(obj.id)}>
+                onClick={() => { storeGet().select(obj.id); storeGet().selectParameter(null) }}>
                 <span className="obj-color" style={{ background: `#${obj.tint.toString(16).padStart(6, '0')}` }} />
                 {obj.name}
               </div>
             ))}
+          </div>
+
+          <div className="panel-title">參數</div>
+          <button className="btn" onClick={() => {
+            const num = Object.keys(parameters).length + 1
+            const id = storeGet().addParameter(`參數 ${num}`, 0, 100)
+            storeGet().selectParameter(id)
+            storeGet().select(null)
+          }}>+ 新增參數</button>
+          {selectedParamId && !selectedId && <button className="btn btn-danger" onClick={() => storeGet().deleteParameter(selectedParamId)}>刪除參數</button>}
+
+          <div className="obj-list param-list-left">
+            {Object.values(parameters).map(param => {
+              const isActive = param.id === selectedParamId
+              const relevantKfs = param.keyframes.filter(kf => !selectedId || kf.quads[selectedId] !== undefined)
+              const hasKf    = (t: number) => relevantKfs.some(kf => Math.abs(kf.t - t) < 0.001)
+              const atKf     = hasKf(param.value)
+              return (
+                <div key={param.id} className={`param-item-container ${isActive ? 'active' : ''}`}>
+                  <div className={`obj-item ${isActive ? 'active' : ''}`}
+                    onClick={() => { storeGet().selectParameter(param.id); storeGet().select(null) }}>
+                    <span className="param-icon">▷</span>
+                    {param.name}
+                    <span className="param-val-small" style={{ marginLeft: 'auto', fontSize: 11, color: '#aaa' }}>{param.value.toFixed(0)}</span>
+                  </div>
+                  {/* 下方的拉桿 */}
+                  <div className="param-slider-row">
+                    <button className="kf-nav-btn"
+                      title="跳到前一個關鍵幀"
+                      onClick={e => { e.stopPropagation(); jumpKeyframe(param.id, 'prev') }}
+                      disabled={!relevantKfs.some(kf => kf.t < param.value - 0.001)}
+                    >◀</button>
+                    <div className="slider-wrap">
+                      <input
+                        type="range"
+                        className="param-slider"
+                        min={param.min} max={param.max} step={0.5}
+                        value={param.value}
+                        onChange={e => setParameterValue(param.id, parseFloat(e.target.value))}
+                      />
+                      <div className="param-kf-markers">
+                        {relevantKfs.map(kf => {
+                          const pct = (kf.t - param.min) / (param.max - param.min)
+                          return (
+                            <span key={kf.t}
+                              className="kf-marker"
+                              style={{ left: `calc(${pct.toFixed(4)} * (100% - 16px) + 8px)` }}
+                              title={`關鍵幀 t=${kf.t}`}
+                              onClick={e => { e.stopPropagation(); deleteKeyframe(param.id, kf.t) }}
+                            />
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <button className="kf-nav-btn"
+                      title="跳到下一個關鍵幀"
+                      onClick={e => { e.stopPropagation(); jumpKeyframe(param.id, 'next') }}
+                      disabled={!relevantKfs.some(kf => kf.t > param.value + 0.001)}
+                    >▶</button>
+                    <button
+                      className={`btn-inline ${atKf ? 'warn' : ''}`} style={{ padding: '2px 4px', fontSize: 11, marginLeft: 4 }}
+                      title={atKf ? '覆蓋關鍵幀' : '記錄關鍵幀'}
+                      onClick={e => { e.stopPropagation(); recordKeyframe(param.id) }}>
+                      {atKf ? '●' : '◎'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </aside>
 
@@ -487,6 +551,21 @@ export default function App() {
 
         {/* ── 右側：屬性 ── */}
         <aside className="panel-right">
+          {selectedParamId && !selected ? (() => {
+            const p = parameters[selectedParamId]
+            if (!p) return null
+            return (
+              <>
+                <div className="panel-title">參數屬性</div>
+                <div className="prop-row">
+                  <span className="prop-label">名稱</span>
+                  <input className="prop-input" value={p.name}
+                    onChange={e => storeGet().renameParameter(p.id, e.target.value)} />
+                </div>
+              </>
+            )
+          })() : null}
+
           {selected ? (
             <>
               <div className="panel-title">{selected.name}</div>
@@ -642,94 +721,7 @@ export default function App() {
         </aside>
       </div>
 
-      {/* ── 底部：參數列 ── */}
-      <footer className="param-bar">
-        <div className="param-bar-header">
-          <span className="param-bar-title">參數</span>
-          <button className="btn-small" onClick={() => setShowNewParam(v => !v)}>+ 新增參數</button>
-        </div>
 
-        {showNewParam && (
-          <div className="new-param-row">
-            <input
-              className="param-input"
-              placeholder="參數名稱（如：頭部左右轉）"
-              value={newParamName}
-              onChange={e => setNewParamName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddParam()}
-              autoFocus
-            />
-            <button className="btn-inline" onClick={handleAddParam}>確定</button>
-            <button className="btn-inline danger" onClick={() => setShowNewParam(false)}>取消</button>
-          </div>
-        )}
-
-        <div className="param-list">
-          {Object.values(parameters).map(param => {
-            const isActive = param.id === selectedParamId
-            // 只考慮有目前選取物件資料的關鍵幀（或如果沒選東西，就考慮全部）
-            const relevantKfs = param.keyframes.filter(kf => !selectedId || kf.quads[selectedId] !== undefined)
-            const hasKf    = (t: number) => relevantKfs.some(kf => Math.abs(kf.t - t) < 0.001)
-            const atKf     = hasKf(param.value)
-            return (
-              <div key={param.id}
-                className={`param-row ${isActive ? 'active' : ''}`}
-                onClick={() => selectParameter(isActive ? null : param.id)}>
-                <span className="param-name">{param.name}</span>
-                <span className="param-val">{param.value.toFixed(0)}</span>
-                <div className="slider-nav">
-                  <button className="kf-nav-btn"
-                    title="跳到前一個關鍵幀"
-                    onClick={e => { e.stopPropagation(); jumpKeyframe(param.id, 'prev') }}
-                    disabled={!relevantKfs.some(kf => kf.t < param.value - 0.001)}
-                  >◀</button>
-                  <div className="slider-wrap">
-                    <input
-                      type="range"
-                      className="param-slider"
-                      min={param.min} max={param.max} step={0.5}
-                      value={param.value}
-                      onChange={e => setParameterValue(param.id, parseFloat(e.target.value))}
-                      onClick={e => e.stopPropagation()}
-                    />
-                    <div className="param-kf-markers">
-                      {param.keyframes
-                        .filter(kf => !selectedId || kf.quads[selectedId] !== undefined)
-                        .map(kf => {
-                        const pct = (kf.t - param.min) / (param.max - param.min)
-                        return (
-                          <span key={kf.t}
-                            className="kf-marker"
-                            style={{ left: `calc(${pct.toFixed(4)} * (100% - 16px) + 8px)` }}
-                            title={`關鍵幀 t=${kf.t}`}
-                            onClick={e => { e.stopPropagation(); deleteKeyframe(param.id, kf.t) }}
-                          />
-                        )
-                      })}
-                    </div>
-                  </div>
-                  <button className="kf-nav-btn"
-                    title="跳到下一個關鍵幀"
-                    onClick={e => { e.stopPropagation(); jumpKeyframe(param.id, 'next') }}
-                    disabled={!relevantKfs.some(kf => kf.t > param.value + 0.001)}
-                  >▶</button>
-                </div>
-                <button
-                  className={`btn-inline ${atKf ? 'warn' : ''}`}
-                  title={atKf ? '覆蓋關鍵幀' : '記錄關鍵幀'}
-                  onClick={e => { e.stopPropagation(); recordKeyframe(param.id) }}>
-                  {atKf ? '● 覆蓋' : '◎ 記錄'}
-                </button>
-                <button className="btn-inline danger"
-                  onClick={e => { e.stopPropagation(); deleteParameter(param.id) }}>✕</button>
-              </div>
-            )
-          })}
-          {Object.keys(parameters).length === 0 && (
-            <span className="empty-hint">尚無參數 — 點「+ 新增參數」建立</span>
-          )}
-        </div>
-      </footer>
     </div>
   )
 }

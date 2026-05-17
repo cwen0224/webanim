@@ -55,6 +55,7 @@ interface SceneStore {
   // 參數
   addParameter:         (name: string, min: number, max: number) => string
   deleteParameter:      (paramId: string) => void
+  renameParameter:      (paramId: string, name: string) => void
   setParameterValue:    (paramId: string, value: number) => void
   selectParameter:      (paramId: string | null) => void
   bindObjectToParam:    (paramId: string, objectId: string) => void
@@ -494,6 +495,12 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
       parameters: p,
       selectedParamId: s.selectedParamId === paramId ? null : s.selectedParamId,
     }
+  }),
+
+  renameParameter: (paramId, name) => set(s => {
+    const p = s.parameters[paramId]
+    if (!p) return s
+    return { ...s, parameters: { ...s.parameters, [paramId]: { ...p, name } } }
   }),
 
   setParameterValue: (paramId, value) => {
